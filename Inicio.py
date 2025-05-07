@@ -3,7 +3,7 @@ import streamlit as st
 
 # --- Page Configuration (Optional but Recommended) ---
 st.set_page_config(
-    page_title="InfoMed",
+    page_title="Kiosco App - Login",
     page_icon="🛒",
     layout="centered" # "wide" or "centered"
 )
