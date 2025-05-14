@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 # --- Main Application ---
-st.title("App")
+st.title("InfoMed")
 
 
 # Check if the user is already logged in (using session state)
@@ -30,7 +30,7 @@ if not st.session_state.get("logged_in", False):
                 st.error("Please enter both username and password.")
 else:
     # If logged in, show a welcome message
-    st.success(f"Welcome back, {st.session_state.get('username', 'User')}!")
+    st.success(f"Bienvenido nuevamente, {st.session_state.get('username', 'User')}!")
     st.info("Navigate using the sidebar on the left to manage different sections.")
     #st.balloons() # Fun little animation
 
