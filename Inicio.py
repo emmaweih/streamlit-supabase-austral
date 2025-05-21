@@ -1,4 +1,5 @@
 import streamlit as st
+import functions as f
 
 # --- Page Configuration (Optional but Recommended) ---
 st.set_page_config(
@@ -8,9 +9,8 @@ st.set_page_config(
 )
 
 # --- Main Application ---
-st.title("InfoMed")
+st.title("¡Bienvenido a InfoMed!")
 
-import streamlit as st
 
 # Estilos
 st.markdown(
@@ -45,8 +45,15 @@ if "nombre_usuario" not in st.session_state:
 
 # Títulos generales
 if st.session_state.pantalla != "perfil":
-    st.markdown('<p class="title">🏥 Bienvenido a InfoMed</p>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Tu bienestar es nuestra prioridad</p>', unsafe_allow_html=True)
+    st.markdown(
+    """
+    <h1 style='font-size: 36px; color: #2B7A78; text-align: center;'>
+        Tu bienestar es nuestra prioridad
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # Pantalla de inicio
 if st.session_state.pantalla is None:
@@ -57,6 +64,8 @@ if st.session_state.pantalla is None:
     with col2:
         if st.button("📝 Registrarse", use_container_width=True):
             st.session_state.pantalla = "seleccion_tipo"
+
+
 
 # Selección tipo de registro
 elif st.session_state.pantalla == "seleccion_tipo":
