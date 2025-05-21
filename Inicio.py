@@ -1,4 +1,3 @@
-
 import streamlit as st
 
 # --- Page Configuration (Optional but Recommended) ---
@@ -131,5 +130,3 @@ elif st.session_state.pantalla == "perfil":
 
     if st.button("Cerrar sesión"):
         st.session_state.clear()
-
-
