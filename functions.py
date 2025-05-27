@@ -58,6 +58,7 @@ def execute_query(query, conn=None, is_select=True):
         pandas.DataFrame or bool: A DataFrame containing the query results for SELECT queries,
             or True for successful DML operations, False otherwise.
     """
+
     try:
         # Create a new connection if one wasn't provided
         close_conn = False
@@ -97,6 +98,7 @@ def execute_query(query, conn=None, is_select=True):
             conn.rollback()
         return pd.DataFrame() if is_select else False
 
+
 def add_employee(nombre, dni, telefono, fecha_contratacion, salario):
     """
     Adds a new employee to the Empleado table.
@@ -106,4 +108,3 @@ def add_employee(nombre, dni, telefono, fecha_contratacion, salario):
     params = (nombre, dni, telefono, fecha_contratacion, salario)
     
     return execute_query(query, params=params, is_select=False)
-
