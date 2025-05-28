@@ -42,7 +42,7 @@ def connect_to_supabase():
 connect_to_supabase()
 
 
-def execute_query(query, conn=None, is_select=True):
+def execute_query(query, params= None, conn=None, is_select=True):
     """
     Executes a SQL query and returns the results as a pandas DataFrame for SELECT queries,
     or executes DML operations (INSERT, UPDATE, DELETE) and returns success status.
@@ -58,7 +58,6 @@ def execute_query(query, conn=None, is_select=True):
         pandas.DataFrame or bool: A DataFrame containing the query results for SELECT queries,
             or True for successful DML operations, False otherwise.
     """
-
     try:
         # Create a new connection if one wasn't provided
         close_conn = False
@@ -68,7 +67,10 @@ def execute_query(query, conn=None, is_select=True):
         
         # Create cursor and execute query
         cursor = conn.cursor()
-        cursor.execute(query)
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
         
         if is_select:
             # Fetch all results for SELECT queries
@@ -97,7 +99,6 @@ def execute_query(query, conn=None, is_select=True):
         if conn and not is_select:
             conn.rollback()
         return pd.DataFrame() if is_select else False
-
 
 def add_employee(nombre, dni, telefono, fecha_contratacion, salario):
     """
