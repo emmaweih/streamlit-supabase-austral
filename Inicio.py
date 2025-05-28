@@ -12,7 +12,6 @@ st.set_page_config(
 # --- Main Application ---
 st.title("¡Bienvenido a InfoMed!")
 
-
 # Estilos
 st.markdown(
     """
@@ -56,7 +55,6 @@ if st.session_state.pantalla != "perfil":
     unsafe_allow_html=True
 )
 
-
 # Pantalla de inicio
 if st.session_state.pantalla is None:
     col1, col2 = st.columns(2)
@@ -68,8 +66,6 @@ if st.session_state.pantalla is None:
         if st.button("📝 Registrarse", use_container_width=True):
             st.session_state.pantalla = "seleccion_tipo"
             st.rerun()
-
-
 
 # Selección tipo de registro
 elif st.session_state.pantalla == "seleccion_tipo":
@@ -95,7 +91,7 @@ elif st.session_state.pantalla == "registro":
     apellido = st.text_input("👤 Apellido")
     nombre = st.text_input("👤 Nombre")
     fecha_nac = st.date_input("📅 Fecha de nacimiento")
-    sexo = st.selectbox("⚧ Sexo", ["Masculino", "Femenino", "Otro"])
+    sexo = st.selectbox("⚧ Sexo", ["M", "F", "O"])
 
     if tipo == "medico":
         telefono = st.text_input("📞 Teléfono")
@@ -107,89 +103,41 @@ elif st.session_state.pantalla == "registro":
         obra_social = st.text_input("🏥 Obra social")
         correo = st.text_input("📧 Correo electrónico")
         contraseña = st.text_input("🔑 Contraseña", type="password")
-
-    if st.button("✅ Registrarme"):
-        if not dni or not nombre or not apellido or not correo or not contraseña:
-            st.error("Por favor, completá todos los campos obligatorios.")
-        else:
-            st.session_state.nombre_usuario = nombre
-            st.session_state.pantalla = "perfil"
-            st.rerun()
-
-
-
-
-
-    with st.form("form_registro_paciente"):
-        id_paciente = st.text_input("🆔 DNI")
-        apellido = st.text_input("👤 Apellido")
-        nombre = st.text_input("👤 Nombre")
-        fecha_nac = st.date_input("📅 Fecha de nacimiento", max_value=date.today())
-        sexo = st.selectbox("⚧ Sexo", ["Masculino", "Femenino", "Otro"])
-        direccion = st.text_input("🏠 Dirección")
-        codigo_postal = st.text_input("📬 Código postal")
-        obra_social = st.text_input("🏥 Obra social")
-        email = st.text_input("📧 Correo electrónico")
-        contrasena = st.text_input("🔑 Contraseña", type="password")
     
-        submit = st.form_submit_button("Registrarse")
-
-        if submit:
-            if all([id_paciente, apellido, nombre, fecha_nac, sexo, direccion, codigo_postal, obra_social, email, contrasena]):
-                query = """
-                    INSERT INTO paciente (
-                        id_paciente, apellido, nombre, fecha_de_nacimiento,
-                        sexo, direccion, codigo_postal, obra_social,
-                        email, contraseña
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """
-                params = (
-                    id_paciente, apellido, nombre, fecha_nac,
-                    sexo, direccion, codigo_postal, obra_social,
-                    email, contrasena
+        if st.button("✅ Registrarme"):
+            # Validar que todos los campos estén completos
+            if dni and apellido and nombre and fecha_nac and sexo and direccion and codigo_postal and obra_social and correo and contraseña:
+                # Usar la función registrar_usuario
+                resultado = f.registrar_usuario(
+                    dni=dni,
+                    apellido=apellido,
+                    nombre=nombre,
+                    fecha_nac=fecha_nac,
+                    sexo=sexo,
+                    direccion=direccion,
+                    codigo_postal=codigo_postal,
+                    obra_social=obra_social,
+                    correo=correo,
+                    contraseña=contraseña
                 )
-                resultado = f.execute_query(query, params=params, is_select=False)
-
+                
                 if resultado:
                     st.success("✅ Paciente registrado con éxito.")
+                    # Opcional: redirigir a login después del registro exitoso
+                    # st.session_state.pantalla = "login"
+                    # st.rerun()
                 else:
                     st.error("❌ Hubo un error al registrar el paciente.")
             else:
                 st.warning("⚠️ Completá todos los campos antes de continuar.")
-
-
-# Login
-elif st.session_state.pantalla == "login":
-    st.subheader("Iniciar sesión")
-    usuario = st.text_input("👤 Usuario")
-    contraseña = st.text_input("🔑 Contraseña", type="password")
-
-    if st.button("🔓 Entrar"):
-        if usuario and contraseña:
-            st.session_state.nombre_usuario = usuario
-            # Por ahora asumimos que todos los que inician sesión son pacientes
-            st.session_state.tipo_usuario = "paciente"
-            st.session_state.pantalla = "perfil"
-        else:
-            st.error("Faltan datos.")
-
-# Perfil post login/registro
-elif st.session_state.pantalla == "perfil":
-    nombre = st.session_state.nombre_usuario
-    tipo = st.session_state.tipo_usuario
-
-    st.markdown(f"## 👋 ¡Hola {nombre}!")
-    if tipo == "medico":
-        st.markdown("Estás en tu panel como **👨‍⚕️ Médico**.")
-        st.write("Aquí podrías cargar pacientes, ver turnos, etc.")
-    elif tipo == "paciente":
-        st.markdown("Estás en tu panel como **🧑‍🦱 Paciente**.")
-        st.write("Aquí podrías ver tu historial, pedir turnos, etc.")
-
-    if st.button("Cerrar sesión"):
-        st.session_state.clear()
-        st.rerun()
-
-
-
+                st.write("**Campos faltantes:**")
+                if not dni: st.write("- DNI")
+                if not apellido: st.write("- Apellido")
+                if not nombre: st.write("- Nombre")
+                if not fecha_nac: st.write("- Fecha de nacimiento")
+                if not sexo: st.write("- Sexo")
+                if not direccion: st.write("- Dirección")
+                if not codigo_postal: st.write("- Código postal")
+                if not obra_social: st.write("- Obra social")
+                if not correo: st.write("- Correo electrónico")
+                if not contraseña: st.write("- Contraseña")
