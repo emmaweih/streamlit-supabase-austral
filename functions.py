@@ -157,3 +157,48 @@ def registrar_usuario(dni, apellido, nombre, fecha_nac, sexo, direccion, codigo_
     except Exception as e:
         print(f"Error en registrar_usuario: {e}")
         return False
+
+def registrar_medico(dni, apellido, nombre, sexo, id_hospital=None, telefono=None, correo=None, contraseña=None):
+    """
+    Registra un nuevo usuario/medico en la tabla medico.
+    
+    Args:
+        dni (str): DNI del medico (usado como id_medico)
+        apellido (str): Apellido del medico
+        nombre (str): Nombre del medico
+        sexo (str): Sexo del medico
+        id_hospital (int, optional): ID del hospital. Puede ser None/NULL
+        telefono (str, optional): Teléfono del medico. Puede ser None/NULL
+        correo (str, optional): Email del medico. Puede ser None/NULL
+        contraseña (str, optional): Contraseña del medico. Puede ser None/NULL
+        
+    Returns:
+        bool: True si el registro fue exitoso, False en caso contrario
+    """
+    try:
+        query = """
+            INSERT INTO medico (
+                id_medico, apellido, nombre,
+                sexo, id_hospital, telefono,
+                email, contraseña
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        params = (
+            dni, apellido, nombre,
+            sexo, id_hospital, telefono,
+            correo, contraseña
+        )
+        
+        resultado = execute_query(query, params=params, is_select=False)
+        
+        if resultado:
+            print(f"Usuario {nombre} {apellido} registrado exitosamente.")
+            return True
+        else:
+            print(f"Error al registrar el usuario {nombre} {apellido}.")
+            return False
+            
+    except Exception as e:
+        print(f"Error en registrar_usuario: {e}")
+        return False
