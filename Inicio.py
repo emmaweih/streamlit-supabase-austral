@@ -2,6 +2,10 @@ import streamlit as st
 import functions as f
 from datetime import date
 
+
+min_date = date(1900, 1, 1)  # Fecha mínima (ajustar a tus necesidades)
+max_date = date(2100, 12, 31)  # Fecha máxima (ajustar a tus necesidades)
+
 def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, direccion, codigo_postal, obra_social, correo, contraseña):
     """
     Registra un nuevo usuario/paciente en la tabla paciente.
@@ -1007,7 +1011,11 @@ elif st.session_state.pantalla == "registro":
         
      
     elif tipo == "paciente":
-        fecha_de_nacimiento = st.date_input("📅 Fecha de nacimiento")
+        fecha_de_nacimiento = st.date_input("📅 Fecha de nacimiento",
+    min_value=min_date,  # Establecer el límite inferior
+    max_value=max_date,  # Establecer el límite superior
+    value=date.today()  # Establece la fecha predeterminada (la fecha de hoy)
+    )
         direccion = st.text_input("🏠 Dirección")
         codigo_postal = st.text_input("📬 Código postal")
         obra_social = st.text_input("🏥 Obra social")
