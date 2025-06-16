@@ -607,6 +607,99 @@ def autenticar_usuario(email, contraseña, tipo_usuario):
             'error': 'Tipo de usuario no válido'
         }
 
+def verificar_usuario_existente(email):
+    """
+    Verifica si un email ya está registrado como paciente o médico
+    Retorna información sobre el tipo de usuario existente
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {'success': False, 'error': 'No se pudo conectar a la base de datos'}
+    
+    try:
+        with conn.cursor() as cursor:
+            # Verificar si existe como paciente
+            cursor.execute("SELECT id_paciente, nombre, apellido FROM paciente WHERE email = %s", (email,))
+            paciente = cursor.fetchone()
+            
+            # Verificar si existe como médico
+            cursor.execute("SELECT id_medico, nombre, apellido FROM medico WHERE email = %s", (email,))
+            medico = cursor.fetchone()
+            
+            if paciente and medico:
+                return {
+                    'success': True,
+                    'existe': True,
+                    'tipo_existente': 'ambos',
+                    'mensaje': f'El email {email} está registrado tanto como paciente como médico. Contacta al administrador.',
+                    'paciente': {'nombre': paciente[1], 'apellido': paciente[2]},
+                    'medico': {'nombre': medico[1], 'apellido': medico[2]}
+                }
+            elif paciente:
+                return {
+                    'success': True,
+                    'existe': True,
+                    'tipo_existente': 'paciente',
+                    'mensaje': f'El email {email} ya está registrado como paciente.',
+                    'usuario': {'nombre': paciente[1], 'apellido': paciente[2]}
+                }
+            elif medico:
+                return {
+                    'success': True,
+                    'existe': True,
+                    'tipo_existente': 'medico',
+                    'mensaje': f'El email {email} ya está registrado como médico.',
+                    'usuario': {'nombre': medico[1], 'apellido': medico[2]}
+                }
+            else:
+                return {
+                    'success': True,
+                    'existe': False,
+                    'mensaje': 'Email no registrado'
+                }
+                
+    except Exception as e:
+        print(f"Error en verificar_usuario_existente: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+    finally:
+        conn.close()
+
+def autenticar_usuario_con_verificacion(email, contraseña, tipo_usuario):
+    """
+    Autentica un usuario verificando primero si existe como otro tipo
+    """
+    # Primero verificar si el usuario existe como otro tipo
+    verificacion = verificar_usuario_existente(email)
+    
+    if not verificacion['success']:
+        return verificacion
+    
+    if verificacion['existe']:
+        tipo_existente = verificacion['tipo_existente']
+        
+        # Si existe como ambos tipos, mostrar error
+        if tipo_existente == 'ambos':
+            return {
+                'success': False,
+                'error': verificacion['mensaje'],
+                'tipo_conflicto': 'ambos'
+            }
+        
+        # Si existe como un tipo diferente al que está intentando autenticar
+        if tipo_existente != tipo_usuario:
+            return {
+                'success': False,
+                'error': f"❌ {verificacion['mensaje']} Si intentas acceder como {'paciente' if tipo_usuario == 'medico' else 'médico'}, por favor selecciona el tipo correcto.",
+                'tipo_conflicto': tipo_existente,
+                'usuario_existente': verificacion['usuario']
+            }
+    
+    # Si no hay conflicto, proceder con la autenticación normal
+    return autenticar_usuario(email, contraseña, tipo_usuario)
+
 def verificar_autenticacion():
     """
     Verifica si el usuario está autenticado
@@ -776,7 +869,14 @@ st.set_page_config(
 )
 
 # --- Main Application ---
-st.title("¡Bienvenido a InfoMed!")
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #000000; font-size: 45px; font-weight: bold;'>
+        ¡Bienvenido a InfoMed!
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
 
 # Estilos
 st.markdown(
@@ -809,17 +909,20 @@ if "tipo_usuario" not in st.session_state:
 if "nombre_usuario" not in st.session_state:
     st.session_state.nombre_usuario = "Usuario"
 
+
 # Títulos generales
 if st.session_state.pantalla != "perfil":
     st.markdown(
     """
-    <h1 style='font-size: 36px; color: 	#3187d0; text-align: center;'>
+    <h1 style='font-size: 36px; color: 	#0077b6; text-align: center;'>
         Tu bienestar es nuestra prioridad
     </h1>
     </br>
     """,
     unsafe_allow_html=True
 )
+    
+
 
 # Pantalla de inicio
 if st.session_state.pantalla is None:
@@ -832,6 +935,18 @@ if st.session_state.pantalla is None:
         if st.button("📝 Registrarse", use_container_width=True):
             st.session_state.pantalla = "seleccion_tipo"
             st.rerun()
+
+st.markdown(
+    """
+    <h1 style='margin-bottom: 20px'
+    """,
+    unsafe_allow_html=True
+)
+
+if st.session_state.pantalla is None:
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+    with col3:
+        st.image("C:/Users/trini/Pictures/Screenshots/Captura de pantalla 2025-06-16 111833.png", width=200)
 
 # Selección tipo de registro
 elif st.session_state.pantalla == "seleccion_tipo":
@@ -847,6 +962,8 @@ elif st.session_state.pantalla == "seleccion_tipo":
             st.session_state.tipo_usuario = "paciente"
             st.session_state.pantalla = "registro"
             st.rerun()
+        
+    
 
     if st.button("🔙 Volver"):
         # Limpiar estados temporales al volver
@@ -868,6 +985,7 @@ elif st.session_state.pantalla == "login":
     email_login = st.text_input("📧 Email")
     contraseña_login = st.text_input("🔑 Contraseña", type="password")
     
+    # Botones en columnas
     col1, col2 = st.columns(2)
     
     with col1:
@@ -877,7 +995,7 @@ elif st.session_state.pantalla == "login":
                 tipo_usuario_login = "paciente" if tipo_login == "Paciente" else "medico"
                 
                 # Intentar autenticar
-                resultado = autenticar_usuario(email_login, contraseña_login, tipo_usuario_login)
+                resultado = autenticar_usuario_con_verificacion(email_login, contraseña_login, tipo_usuario_login)
                 
                 if resultado['success']:
                     # Login exitoso
@@ -888,6 +1006,7 @@ elif st.session_state.pantalla == "login":
                     st.success(f"¡Bienvenido, {st.session_state.nombre_usuario}!")
                     st.rerun()
                 else:
+                    # Mostrar mensaje de error único
                     st.error(f"❌ {resultado['error']}")
             else:
                 st.warning("⚠️ Por favor, completa todos los campos.")
@@ -1025,6 +1144,18 @@ elif st.session_state.pantalla == "registro":
     # Botón de registro
     if st.button("✅ Registrarme"):
         tipo = st.session_state.tipo_usuario
+        
+        # Verificar si el email ya está registrado como otro tipo
+        if correo:
+            verificacion_email = verificar_usuario_existente(correo)
+            if verificacion_email['success'] and verificacion_email['existe']:
+                tipo_existente = verificacion_email['tipo_existente']
+                if tipo_existente == 'ambos':
+                    st.error(f"❌ {verificacion_email['mensaje']}")
+                    st.stop()
+                elif tipo_existente != tipo:
+                    st.error(f"❌ {verificacion_email['mensaje']} Si quieres registrarte como {'paciente' if tipo == 'medico' else 'médico'}, por favor selecciona el tipo correcto.")
+                    st.stop()
         
         if tipo == "paciente":
             # Lógica para paciente (sin cambios)
@@ -1304,3 +1435,20 @@ elif st.session_state.pantalla == "editar_perfil":
             if st.form_submit_button("🔙 Cancelar", use_container_width=True):
                 st.session_state.pantalla = "perfil"
                 st.rerun()
+
+def solo_medico_autenticado():
+    """
+    Permite el acceso solo si el usuario está autenticado y es médico.
+    Si no, muestra un mensaje y detiene la ejecución de la página.
+    """
+    if "usuario_autenticado" not in st.session_state or st.session_state.usuario_autenticado is None:
+        st.error("🔐 Debes iniciar sesión como médico para acceder a esta página")
+        if st.button("🏠 Ir a la página principal"):
+            st.switch_page("Inicio.py")
+        st.stop()
+    if st.session_state.get("tipo_usuario") != "medico":
+        st.error("❌ Solo los médicos pueden acceder a esta página.")
+        if st.button("🔙 Volver al perfil"):
+            st.switch_page("Inicio.py")
+        st.stop()
+
