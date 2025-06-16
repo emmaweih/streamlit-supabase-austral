@@ -776,7 +776,14 @@ st.set_page_config(
 )
 
 # --- Main Application ---
-st.title("¡Bienvenido a InfoMed!")
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #000000; font-size: 45px; font-weight: bold;'>
+        ¡Bienvenido a InfoMed!
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
 
 # Estilos
 st.markdown(
@@ -809,17 +816,20 @@ if "tipo_usuario" not in st.session_state:
 if "nombre_usuario" not in st.session_state:
     st.session_state.nombre_usuario = "Usuario"
 
+
 # Títulos generales
 if st.session_state.pantalla != "perfil":
     st.markdown(
     """
-    <h1 style='font-size: 36px; color: 	#3187d0; text-align: center;'>
+    <h1 style='font-size: 36px; color: 	#0077b6; text-align: center;'>
         Tu bienestar es nuestra prioridad
     </h1>
     </br>
     """,
     unsafe_allow_html=True
 )
+    
+
 
 # Pantalla de inicio
 if st.session_state.pantalla is None:
@@ -832,6 +842,18 @@ if st.session_state.pantalla is None:
         if st.button("📝 Registrarse", use_container_width=True):
             st.session_state.pantalla = "seleccion_tipo"
             st.rerun()
+
+st.markdown(
+    """
+    <h1 style='margin-bottom: 20px'
+    """,
+    unsafe_allow_html=True
+)
+
+if st.session_state.pantalla != "perfil":
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+    with col3:
+        st.image("C:/Users/trini/Pictures/Screenshots/Captura de pantalla 2025-06-16 111833.png", width=200)
 
 # Selección tipo de registro
 elif st.session_state.pantalla == "seleccion_tipo":
@@ -847,6 +869,8 @@ elif st.session_state.pantalla == "seleccion_tipo":
             st.session_state.tipo_usuario = "paciente"
             st.session_state.pantalla = "registro"
             st.rerun()
+        
+    
 
     if st.button("🔙 Volver"):
         # Limpiar estados temporales al volver
