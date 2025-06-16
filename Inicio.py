@@ -850,7 +850,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-if st.session_state.pantalla != "perfil":
+if st.session_state.pantalla is None:
     col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
     with col3:
         st.image("C:/Users/trini/Pictures/Screenshots/Captura de pantalla 2025-06-16 111833.png", width=200)
@@ -1328,3 +1328,4 @@ elif st.session_state.pantalla == "editar_perfil":
             if st.form_submit_button("🔙 Cancelar", use_container_width=True):
                 st.session_state.pantalla = "perfil"
                 st.rerun()
+
