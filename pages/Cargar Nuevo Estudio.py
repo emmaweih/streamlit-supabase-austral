@@ -5,9 +5,16 @@ from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime, date
 import time
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from Inicio import solo_medico_autenticado
+
 
 # Cargar variables de entorno
 load_dotenv()
+
+# Control de acceso: solo médicos autenticados
+solo_medico_autenticado()
 
 def connect_to_supabase():
     """
