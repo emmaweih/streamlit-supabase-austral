@@ -1452,3 +1452,22 @@ def solo_medico_autenticado():
             st.switch_page("Inicio.py")
         st.stop()
 
+def solo_paciente_autenticado():
+    """
+    Permite el acceso solo si el usuario está autenticado y es paciente.
+    Si no, muestra un mensaje y detiene la ejecución de la página.
+    """
+    # Verificar autenticación
+    if "usuario_autenticado" not in st.session_state or st.session_state.usuario_autenticado is None:
+        st.error("🔐 Debes iniciar sesión como paciente para acceder a esta página")
+        if st.button("🏠 Ir a la página principal"):
+            st.switch_page("Inicio.py")
+        st.stop()
+    
+    # Verificar tipo de usuario
+    if "tipo_usuario" not in st.session_state or st.session_state.tipo_usuario != "paciente":
+        st.error("❌ Solo los pacientes pueden acceder a esta página.")
+        if st.button("🔙 Volver al perfil"):
+            st.switch_page("Inicio.py")
+        st.stop()
+
