@@ -282,6 +282,7 @@ def buscar_por_especialidad():
 def buscar_por_sintomas(sintoma_a, sintoma_b):
     """
     Busca especialidades y hospitales basados en dos síntomas dados.
+    Busca tanto por especialidad como por atención directa de patología.
     
     Args:
         sintoma_a (str): Descripción del primer síntoma
@@ -292,27 +293,48 @@ def buscar_por_sintomas(sintoma_a, sintoma_b):
     """
     
     query = """
+    -- Buscar hospitales por especialidad (patología -> especialidad -> hospital)
     SELECT DISTINCT 
         e.desc_especialidad as especialidad,
         h.desc_hospital as hospital,
         h.direccion,
-        h.telefono
+        h.telefono,
+        'Por Especialidad' as tipo_atencion
     FROM patologia p
     INNER JOIN sintoma s1 ON (p.id_sintoma_1 = s1.id_sintoma OR p.id_sintoma_2 = s1.id_sintoma)
     INNER JOIN sintoma s2 ON (p.id_sintoma_1 = s2.id_sintoma OR p.id_sintoma_2 = s2.id_sintoma)
     INNER JOIN patologia_especialidades pe ON p.id_patologia = pe.id_patologia
     INNER JOIN especialidades e ON pe.id_especialidad = e.id_especialidad
+    INNER JOIN hospital_especialidades he ON e.id_especialidad = he.id_especialidad
+    INNER JOIN hospital h ON he.id_hospital = h.id_hospital
+    WHERE s1.desc_sintoma = %s 
+      AND s2.desc_sintoma = %s
+      AND s1.id_sintoma != s2.id_sintoma
+    
+    UNION
+    
+    -- Buscar hospitales que atienden la patología directamente
+    SELECT DISTINCT 
+        CONCAT('Atención directa: ', p.desc_patologia) as especialidad,
+        h.desc_hospital as hospital,
+        h.direccion,
+        h.telefono,
+        'Por Patología' as tipo_atencion
+    FROM patologia p
+    INNER JOIN sintoma s1 ON (p.id_sintoma_1 = s1.id_sintoma OR p.id_sintoma_2 = s1.id_sintoma)
+    INNER JOIN sintoma s2 ON (p.id_sintoma_1 = s2.id_sintoma OR p.id_sintoma_2 = s2.id_sintoma)
     INNER JOIN patologia_hospital ph ON p.id_patologia = ph.id_patologia
     INNER JOIN hospital h ON ph.id_hospital = h.id_hospital
     WHERE s1.desc_sintoma = %s 
       AND s2.desc_sintoma = %s
       AND s1.id_sintoma != s2.id_sintoma
-    ORDER BY e.desc_especialidad, h.desc_hospital;
+    
+    ORDER BY especialidad, hospital;
     """
     
     try:
-        # Ejecutar la consulta usando tu función execute_query
-        df_results = execute_query(query, params=(sintoma_a, sintoma_b))
+        # Ejecutar la consulta con parámetros para ambas partes del UNION
+        df_results = execute_query(query, params=(sintoma_a, sintoma_b, sintoma_a, sintoma_b))
         
         # Convertir el DataFrame a lista de diccionarios
         if not df_results.empty:
@@ -428,28 +450,55 @@ def buscar_por_sintomas():
             return []
 
     def buscar_por_sintomas_local(sintoma_a, sintoma_b):
-        """Busca especialidades y hospitales basados en dos síntomas dados"""
+        """Busca especialidades y hospitales basados en dos síntomas dados - VERSIÓN COMPLETA"""
         query = """
+        -- Buscar hospitales por especialidad (patología -> especialidad -> hospital)
         SELECT DISTINCT 
             e.desc_especialidad as especialidad,
             h.desc_hospital as hospital,
             h.direccion,
-            h.telefono
+            h.telefono,
+            'Por Especialidad' as tipo_atencion
         FROM patologia p
         INNER JOIN sintoma s1 ON (p.id_sintoma_1 = s1.id_sintoma OR p.id_sintoma_2 = s1.id_sintoma)
         INNER JOIN sintoma s2 ON (p.id_sintoma_1 = s2.id_sintoma OR p.id_sintoma_2 = s2.id_sintoma)
         INNER JOIN patologia_especialidades pe ON p.id_patologia = pe.id_patologia
         INNER JOIN especialidades e ON pe.id_especialidad = e.id_especialidad
+        INNER JOIN hospital_especialidades he ON e.id_especialidad = he.id_especialidad
+        INNER JOIN hospital h ON he.id_hospital = h.id_hospital
+        WHERE (
+            (s1.desc_sintoma = %s AND s2.desc_sintoma = %s) OR 
+            (s1.desc_sintoma = %s AND s2.desc_sintoma = %s)
+        )
+        AND s1.id_sintoma != s2.id_sintoma
+        
+        UNION
+        
+        -- Buscar hospitales que atienden la patología directamente
+        SELECT DISTINCT 
+            CONCAT('Atención directa: ', p.desc_patologia) as especialidad,
+            h.desc_hospital as hospital,
+            h.direccion,
+            h.telefono,
+            'Por Patología' as tipo_atencion
+        FROM patologia p
+        INNER JOIN sintoma s1 ON (p.id_sintoma_1 = s1.id_sintoma OR p.id_sintoma_2 = s1.id_sintoma)
+        INNER JOIN sintoma s2 ON (p.id_sintoma_1 = s2.id_sintoma OR p.id_sintoma_2 = s2.id_sintoma)
         INNER JOIN patologia_hospital ph ON p.id_patologia = ph.id_patologia
         INNER JOIN hospital h ON ph.id_hospital = h.id_hospital
-        WHERE s1.desc_sintoma = %s 
-          AND s2.desc_sintoma = %s
-          AND s1.id_sintoma != s2.id_sintoma
-        ORDER BY e.desc_especialidad, h.desc_hospital;
+        WHERE (
+            (s1.desc_sintoma = %s AND s2.desc_sintoma = %s) OR 
+            (s1.desc_sintoma = %s AND s2.desc_sintoma = %s)
+        )
+        AND s1.id_sintoma != s2.id_sintoma
+        
+        ORDER BY especialidad, hospital;
         """
         
         try:
-            df_results = execute_query(query, params=(sintoma_a, sintoma_b))
+            # Pasar los parámetros para ambas partes del UNION: (A,B,B,A) + (A,B,B,A)
+            df_results = execute_query(query, params=(sintoma_a, sintoma_b, sintoma_b, sintoma_a, 
+                                                    sintoma_a, sintoma_b, sintoma_b, sintoma_a))
             if not df_results.empty:
                 return df_results.to_dict('records')
             else:
@@ -739,3 +788,43 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+def mostrar_resultado_sintomas(resultado):
+    """Muestra una tarjeta de resultado con especialidad/patología y hospital"""
+    direccion = resultado.get('direccion', 'No disponible')
+    if pd.isna(direccion):
+        direccion = 'No disponible'
+        
+    telefono = resultado.get('telefono', 'No disponible')
+    if pd.isna(telefono):
+        telefono = 'No disponible'
+    
+    # Determinar el color del tag según el tipo de atención
+    tipo_atencion = resultado.get('tipo_atencion', 'Por Especialidad')
+    if tipo_atencion == 'Por Patología':
+        tag_color = "background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);"
+        icon = "🩺"
+    else:
+        tag_color = "background: linear-gradient(135deg, #E91E63 0%, #F48FB1 100%);"
+        icon = "👨‍⚕️"
+    
+    st.markdown(f"""
+    <div class="hospital-card-sintomas">
+        <div style="margin-bottom: 1rem;">
+            <span class="specialty-tag" style="{tag_color}">
+                {icon} {resultado['especialidad']}
+            </span>
+        </div>
+        <div class="hospital-name-especialidad">
+            <span class="hospital-icon-especialidad">🏥</span>
+            {resultado['hospital']}
+        </div>
+        <div class="hospital-info-especialidad">
+            <span class="hospital-icon-especialidad">📍</span>
+            <strong>Dirección:</strong> &nbsp; {direccion}
+        </div>
+        <div class="hospital-info-especialidad">
+            <span class="hospital-icon-especialidad">📞</span>
+            <strong>Teléfono:</strong> &nbsp; {telefono}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
