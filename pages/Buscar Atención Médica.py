@@ -4,7 +4,10 @@ import os
 import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from functions import execute_query
+from Inicio import solo_paciente_autenticado
 
+# Verificar que solo pacientes autenticados puedan acceder
+solo_paciente_autenticado()
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -777,6 +780,10 @@ else:
             )
             buscar_por_sintomas()
             st.markdown("</div>", unsafe_allow_html=True)
+
+# Botón para volver al perfil
+if st.button("🔙 Volver al perfil"):
+    st.switch_page("Inicio.py")
 
 # --- Footer ---
 st.markdown("---")
