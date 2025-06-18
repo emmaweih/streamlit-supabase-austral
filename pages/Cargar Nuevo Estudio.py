@@ -566,6 +566,10 @@ elif st.session_state.step == 'success':
         st.session_state.form_data = {}
         st.rerun()
 
+# Botón para volver al perfil
+if st.button("🔙 Volver al perfil"):
+    st.switch_page("Inicio.py")
+
 # Footer
 st.markdown("---")
 st.markdown("""

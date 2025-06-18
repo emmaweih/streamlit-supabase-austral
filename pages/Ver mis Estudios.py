@@ -228,6 +228,10 @@ def main():
                 <p>Aún no se han cargado estudios médicos en tu historial.</p>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Botón para volver al perfil (cuando no hay estudios)
+            if st.button("🔙 Volver al perfil"):
+                st.switch_page("Inicio.py")
             return
             
     except Exception as e:
