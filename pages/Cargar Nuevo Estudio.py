@@ -223,22 +223,33 @@ def buscar_paciente_por_dni(dni_paciente):
         return None
 
 def buscar_medico_por_dni(dni_medico):
-    """Busca un médico por DNI y retorna sus datos incluyendo el sexo para determinar Dr/Dra"""
+    """Busca un médico por DNI y retorna sus datos incluyendo el sexo para determinar Dr/Dra y el hospital"""
     try:
-        # MODIFICADO: Incluir el campo sexo en la consulta
-        query = "SELECT id_medico, nombre, apellido, sexo FROM medico WHERE id_medico = %s"
+        # MODIFICADO: Incluir el campo sexo y hospital en la consulta
+        query = """
+        SELECT m.id_medico, m.nombre, m.apellido, m.sexo, h.desc_hospital as hospital
+        FROM medico m
+        LEFT JOIN hospital h ON m.id_hospital = h.id_hospital
+        WHERE m.id_medico = %s
+        """
         df = execute_query(query, params=(dni_medico,), is_select=True)
         
         if not df.empty:
             sexo = str(df.iloc[0]['sexo']).upper()  # Convertir a mayúscula para comparar
             titulo = "Dr." if sexo == 'M' else "Dra."  # M = Dr., F = Dra.
             
+            # Obtener hospital, usar "Hospital no asignado" si es NULL
+            hospital = df.iloc[0]['hospital']
+            if pd.isna(hospital) or hospital is None:
+                hospital = "Hospital no asignado"
+            
             return {
                 'id_medico': int(df.iloc[0]['id_medico']),  # Convertir a int nativo de Python
                 'nombre': str(df.iloc[0]['nombre']),
                 'apellido': str(df.iloc[0]['apellido']),
                 'sexo': sexo,
-                'titulo': titulo  # Nuevo campo con el título apropiado
+                'titulo': titulo,  # Nuevo campo con el título apropiado
+                'hospital': str(hospital)  # Nuevo campo con el hospital
             }
         return None
     except Exception as e:
@@ -551,7 +562,7 @@ elif st.session_state.step == 'success':
     with col1:
         st.success(f"**Paciente:** {st.session_state.paciente_data['nombre']} {st.session_state.paciente_data['apellido']}")
         st.success(f"**Fecha:** {st.session_state.form_data['fecha_estudio']}")
-        st.success(f"**Hospital:** InfoMed Medical Center")
+        st.success(f"**Hospital:** {st.session_state.medico_data['hospital']}")
     
     with col2:
         # MODIFICADO: Usar el título apropiado (Dr./Dra.) según el sexo
