@@ -23,9 +23,15 @@ def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, direccio
         contraseña (str): Contraseña del paciente
         
     Returns:
-        bool: True si el registro fue exitoso, False en caso contrario
+        dict: {'success': True/False, 'error': mensaje} según el resultado
     """
     try:
+        # Validar si ya existe un paciente con ese DNI
+        query_check = "SELECT 1 FROM paciente WHERE id_paciente = %s"
+        existe = f.execute_query(query_check, params=(dni,), is_select=True)
+        if not existe.empty:
+            return {'success': False, 'error': 'Ya existe una cuenta con este DNI, revise sus datos'}
+        
         query = """
             INSERT INTO paciente (
                 id_paciente, apellido, nombre, fecha_de_nacimiento,
@@ -44,14 +50,14 @@ def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, direccio
         
         if resultado:
             print(f"Usuario {nombre} {apellido} registrado exitosamente.")
-            return True
+            return {'success': True}
         else:
             print(f"Error al registrar el usuario {nombre} {apellido}.")
-            return False
+            return {'success': False, 'error': 'Error al registrar el usuario'}
             
     except Exception as e:
         print(f"Error en registrar_usuario: {e}")
-        return False
+        return {'success': False, 'error': str(e)}
 
 def registrar_medico(dni, apellido, nombre, sexo, id_hospital=None, telefono=None, correo=None, contraseña=None):
     """
@@ -68,9 +74,15 @@ def registrar_medico(dni, apellido, nombre, sexo, id_hospital=None, telefono=Non
         contraseña (str, optional): Contraseña del medico. Puede ser None/NULL
         
     Returns:
-        bool: True si el registro fue exitoso, False en caso contrario
+        dict: {'success': True/False, 'error': mensaje} según el resultado
     """
     try:
+        # Validar si ya existe un médico con ese DNI
+        query_check = "SELECT 1 FROM medico WHERE id_medico = %s"
+        existe = f.execute_query(query_check, params=(dni,), is_select=True)
+        if not existe.empty:
+            return {'success': False, 'error': 'Ya existe una cuenta con este DNI, revise sus datos'}
+        
         query = """
             INSERT INTO medico (
                 id_medico, apellido, nombre,
@@ -89,14 +101,14 @@ def registrar_medico(dni, apellido, nombre, sexo, id_hospital=None, telefono=Non
         
         if resultado:
             print(f"Usuario {nombre} {apellido} registrado exitosamente.")
-            return True
+            return {'success': True}
         else:
             print(f"Error al registrar el usuario {nombre} {apellido}.")
-            return False
+            return {'success': False, 'error': 'Error al registrar el usuario'}
             
     except Exception as e:
         print(f"Error en registrar_usuario: {e}")
-        return False
+        return {'success': False, 'error': str(e)}
     
 # functions.py - Funciones para manejo de hospitales usando PostgreSQL directo
 
@@ -345,45 +357,37 @@ def registrar_medico_con_hospital(dni, apellido, nombre, sexo, nombre_hospital,
         hospital = resultado_hospital['hospital']
         id_hospital = hospital['id_hospital']
         
-        # Paso 2: Registrar el médico
-        conn = get_db_connection()
-        if not conn:
+        # Paso 2: Registrar el médico usando la función con validación
+        resultado_medico = registrar_medico(
+            dni=dni,
+            apellido=apellido,
+            nombre=nombre,
+            sexo=sexo,
+            id_hospital=id_hospital,
+            telefono=telefono_medico,
+            correo=correo,
+            contraseña=contraseña
+        )
+        if resultado_medico['success']:
+            return {
+                'success': True,
+                'medico': {
+                    'id_medico': dni,
+                    'apellido': apellido,
+                    'nombre': nombre,
+                    'sexo': sexo,
+                    'id_hospital': id_hospital,
+                    'telefono': telefono_medico,
+                    'email': correo
+                },
+                'datos_hospital': hospital,
+                'hospital_nuevo': resultado_hospital['es_nuevo']
+            }
+        else:
             return {
                 'success': False,
-                'mensaje': 'No se pudo conectar a la base de datos'
+                'mensaje': resultado_medico.get('error', 'Error desconocido')
             }
-        
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO medico (id_medico, apellido, nombre, sexo, id_hospital, telefono, email, contraseña) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
-                    RETURNING *
-                """, (dni, apellido, nombre, sexo, id_hospital, telefono_medico, correo, contraseña))
-                
-                row = cursor.fetchone()
-                columns = [desc[0] for desc in cursor.description]
-                medico = dict(zip(columns, row))
-                
-                conn.commit()
-                
-                return {
-                    'success': True,
-                    'medico': medico,
-                    'datos_hospital': hospital,
-                    'hospital_nuevo': resultado_hospital['es_nuevo']
-                }
-                
-        except Exception as e:
-            conn.rollback()
-            print(f"Error al registrar médico: {e}")
-            return {
-                'success': False,
-                'mensaje': f'Error al registrar el médico: {str(e)}'
-            }
-        finally:
-            conn.close()
-            
     except Exception as e:
         print(f"Error en registrar_medico_con_hospital: {e}")
         return {
@@ -1172,10 +1176,10 @@ elif st.session_state.pantalla == "registro":
                     correo=correo,
                     contraseña=contraseña
                 )
-                if resultado:
+                if resultado['success']:
                     st.success("✅ Paciente registrado con éxito.")
                 else:
-                    st.error("❌ Hubo un error al registrar el paciente.")
+                    st.error(f"❌ Error al registrar el paciente: {resultado.get('error', 'Error desconocido')}")
             else:
                 st.warning("⚠️ Completá todos los campos antes de continuar.")
                 

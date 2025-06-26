@@ -16,6 +16,10 @@ load_dotenv()
 # Control de acceso: solo médicos autenticados
 solo_medico_autenticado()
 
+# Obtener el DNI del médico autenticado
+medico_autenticado = st.session_state.usuario_autenticado
+DNI_MEDICO_AUTENTICADO = str(medico_autenticado.get('id_medico', ''))
+
 def connect_to_supabase():
     """
     Connects to the Supabase PostgreSQL database using transaction pooler details
@@ -335,7 +339,8 @@ if st.session_state.step == 'form':
         with col2:
             dni_medico = st.text_input(
                 "DNI del Médico *",
-                placeholder="Ingrese su DNI",
+                value=DNI_MEDICO_AUTENTICADO,
+                disabled=True,
                 help="Su Documento Nacional de Identidad (máximo 8 dígitos)",
                 max_chars=8
             )
@@ -359,14 +364,12 @@ if st.session_state.step == 'form':
         
         if submitted:
             # Validaciones
-            if not all([dni_paciente, dni_medico, desc_estudio, resultado]):
+            if not all([dni_paciente, desc_estudio, resultado]):
                 st.error("❌ Por favor complete todos los campos obligatorios (*)")
-            elif not dni_paciente.strip().isdigit() or not dni_medico.strip().isdigit():
-                st.error("❌ Los DNI deben contener solo números")
+            elif not dni_paciente.strip().isdigit():
+                st.error("❌ El DNI del paciente debe contener solo números")
             elif len(dni_paciente.strip()) < 7 or len(dni_paciente.strip()) > 8:
                 st.error("❌ El DNI del paciente debe tener 7 u 8 dígitos")
-            elif len(dni_medico.strip()) < 7 or len(dni_medico.strip()) > 8:
-                st.error("❌ El DNI del médico debe tener 7 u 8 dígitos")
             else:
                 with st.spinner("🔍 Verificando datos..."):
                     # Buscar paciente
@@ -375,18 +378,18 @@ if st.session_state.step == 'form':
                         st.error(f"❌ No se encontró un paciente con el DNI: {dni_paciente}")
                         st.info("💡 Verifique que el DNI sea correcto y que el paciente esté registrado en el sistema")
                     else:
-                        # Buscar médico
-                        medico = buscar_medico_por_dni(dni_medico.strip())
+                        # Buscar médico (ya autenticado)
+                        medico = buscar_medico_por_dni(DNI_MEDICO_AUTENTICADO)
                         if not medico:
-                            st.error(f"❌ No se encontró un médico con el DNI: {dni_medico}")
-                            st.info("💡 Verifique que su DNI sea correcto y que esté registrado como médico en el sistema")
+                            st.error(f"❌ No se encontró un médico con el DNI: {DNI_MEDICO_AUTENTICADO}")
+                            st.info("💡 Verifique que su usuario esté correctamente registrado como médico en el sistema")
                         else:
                             # Guardar datos y continuar
                             st.session_state.paciente_data = paciente
                             st.session_state.medico_data = medico
                             st.session_state.form_data = {
                                 'dni_paciente': dni_paciente.strip(),
-                                'dni_medico': dni_medico.strip(),
+                                'dni_medico': DNI_MEDICO_AUTENTICADO,
                                 'desc_estudio': desc_estudio.strip(),
                                 'fecha_estudio': fecha_estudio,
                                 'resultado': resultado.strip()
@@ -425,8 +428,8 @@ elif st.session_state.step == 'dni_correction':
         with col2:
             dni_medico = st.text_input(
                 "DNI del Médico *",
-                value=st.session_state.form_data.get('dni_medico', ''),
-                placeholder="Ingrese su DNI",
+                value=DNI_MEDICO_AUTENTICADO,
+                disabled=True,
                 help="Su Documento Nacional de Identidad (máximo 8 dígitos)",
                 max_chars=8
             )
@@ -444,14 +447,12 @@ elif st.session_state.step == 'dni_correction':
         
         if submitted:
             # Validaciones
-            if not all([dni_paciente, dni_medico]):
-                st.error("❌ Por favor complete ambos campos de DNI")
-            elif not dni_paciente.strip().isdigit() or not dni_medico.strip().isdigit():
-                st.error("❌ Los DNI deben contener solo números")
+            if not dni_paciente:
+                st.error("❌ Por favor complete el campo de DNI del paciente")
+            elif not dni_paciente.strip().isdigit():
+                st.error("❌ El DNI del paciente debe contener solo números")
             elif len(dni_paciente.strip()) < 7 or len(dni_paciente.strip()) > 8:
                 st.error("❌ El DNI del paciente debe tener 7 u 8 dígitos")
-            elif len(dni_medico.strip()) < 7 or len(dni_medico.strip()) > 8:
-                st.error("❌ El DNI del médico debe tener 7 u 8 dígitos")
             else:
                 with st.spinner("🔍 Verificando datos..."):
                     # Buscar paciente
@@ -460,19 +461,19 @@ elif st.session_state.step == 'dni_correction':
                         st.error(f"❌ No se encontró un paciente con el DNI: {dni_paciente}")
                         st.info("💡 Verifique que el DNI sea correcto y que el paciente esté registrado en el sistema")
                     else:
-                        # Buscar médico
-                        medico = buscar_medico_por_dni(dni_medico.strip())
+                        # Buscar médico (ya autenticado)
+                        medico = buscar_medico_por_dni(DNI_MEDICO_AUTENTICADO)
                         if not medico:
-                            st.error(f"❌ No se encontró un médico con el DNI: {dni_medico}")
-                            st.info("💡 Verifique que su DNI sea correcto y que esté registrado como médico en el sistema")
+                            st.error(f"❌ No se encontró un médico con el DNI: {DNI_MEDICO_AUTENTICADO}")
+                            st.info("💡 Verifique que su usuario esté correctamente registrado como médico en el sistema")
                         else:
                             # Actualizar datos y volver a confirmación
                             st.session_state.paciente_data = paciente
                             st.session_state.medico_data = medico
                             st.session_state.form_data['dni_paciente'] = dni_paciente.strip()
-                            st.session_state.form_data['dni_medico'] = dni_medico.strip()
+                            st.session_state.form_data['dni_medico'] = DNI_MEDICO_AUTENTICADO
                             st.session_state.step = 'confirmation'
-                            st.success("✅ DNI corregidos correctamente")
+                            st.success("✅ DNI corregido correctamente")
                             time.sleep(1)
                             st.rerun()
     
