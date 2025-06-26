@@ -108,7 +108,7 @@ def obtener_paciente_por_id(id_paciente):
     Obtiene la información completa de un paciente por su ID
     """
     query = """
-    SELECT id_paciente, nombre, apellido, dni, fecha_nacimiento, sexo, direccion, codigo_postal, obra_social
+    SELECT id_paciente, nombre, apellido, dni, fecha_nacimiento, sexo, provincia, ciudad, calle, altura, obra_social
     FROM paciente 
     WHERE id_paciente = %s
     """

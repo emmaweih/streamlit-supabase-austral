@@ -211,15 +211,18 @@ st.markdown("""
 def buscar_paciente_por_dni(dni_paciente):
     """Busca un paciente por DNI y retorna sus datos"""
     try:
-        # CORREGIDO: Usar id_paciente en lugar de dni
-        query = "SELECT id_paciente, nombre, apellido FROM paciente WHERE id_paciente = %s"
+        query = "SELECT id_paciente, nombre, apellido, provincia, ciudad, calle, altura FROM paciente WHERE id_paciente = %s"
         df = execute_query(query, params=(dni_paciente,), is_select=True)
         
         if not df.empty:
             return {
-                'id_paciente': int(df.iloc[0]['id_paciente']),  # Convertir a int nativo de Python
+                'id_paciente': int(df.iloc[0]['id_paciente']),
                 'nombre': str(df.iloc[0]['nombre']),
-                'apellido': str(df.iloc[0]['apellido'])
+                'apellido': str(df.iloc[0]['apellido']),
+                'provincia': str(df.iloc[0]['provincia']),
+                'ciudad': str(df.iloc[0]['ciudad']),
+                'calle': str(df.iloc[0]['calle']),
+                'altura': str(df.iloc[0]['altura'])
             }
         return None
     except Exception as e:

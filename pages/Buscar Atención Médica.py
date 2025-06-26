@@ -2,8 +2,13 @@ import streamlit as st
 import sys
 import os
 import pandas as pd
+import psycopg2
+from geo_utils import geocode_address, haversine
+import folium
+from streamlit_folium import st_folium
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from functions import execute_query
+
 def solo_paciente_autenticado():
     """
     Permite el acceso solo si el usuario está autenticado y es paciente.
@@ -23,7 +28,8 @@ def solo_paciente_autenticado():
             st.switch_page("Inicio.py")
         st.stop()
 
-
+# --- RESTRICCIÓN DE ACCESO ---
+solo_paciente_autenticado()
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -31,6 +37,43 @@ st.set_page_config(
     page_icon="🔍",
     layout="wide"
 )
+
+def get_or_update_latlon_paciente(paciente_row, conn):
+    if paciente_row.get('latitud') and paciente_row.get('longitud'):
+        return paciente_row['latitud'], paciente_row['longitud']
+    address = f"{paciente_row['calle']} {paciente_row['altura']}, {paciente_row['ciudad']}, {paciente_row['provincia']}, Argentina"
+    lat, lon = geocode_address(address)
+    if lat and lon:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE paciente SET latitud=%s, longitud=%s WHERE id_paciente=%s", (lat, lon, paciente_row['id_paciente']))
+            conn.commit()
+        return lat, lon
+    return None, None
+
+def get_or_update_latlon_hospital(hospital_row, conn):
+    if hospital_row.get('latitud') and hospital_row.get('longitud'):
+        return hospital_row['latitud'], hospital_row['longitud']
+    address = f"{hospital_row['calle']} {hospital_row['altura']}, {hospital_row['ciudad']}, {hospital_row['provincia']}, Argentina"
+    lat, lon = geocode_address(address)
+    if lat and lon:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE hospital SET latitud=%s, longitud=%s WHERE id_hospital=%s", (lat, lon, hospital_row['id_hospital']))
+            conn.commit()
+        return lat, lon
+    return None, None
+
+def get_paciente_completo(id_paciente, conn):
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT id_paciente, provincia, ciudad, calle, altura, latitud, longitud
+            FROM paciente WHERE id_paciente = %s""", (id_paciente,)
+        )
+        row = cur.fetchone()
+        if row:
+            keys = ['id_paciente', 'provincia', 'ciudad', 'calle', 'altura', 'latitud', 'longitud']
+            return dict(zip(keys, row))
+        return None
+
 def buscar_por_especialidad():
     """
     Función para buscar atención médica por especialidad
@@ -159,9 +202,8 @@ def buscar_por_especialidad():
             return pd.DataFrame()
     
     def obtener_hospitales_por_especialidad(id_especialidad):
-        """Obtiene todos los hospitales que ofrecen una especialidad específica"""
         query = """
-        SELECT DISTINCT h.desc_hospital, h.direccion, h.telefono
+        SELECT DISTINCT h.id_hospital, h.desc_hospital, h.provincia, h.ciudad, h.calle, h.altura, h.telefono, h.latitud, h.longitud
         FROM hospital h
         INNER JOIN hospital_especialidades he ON h.id_hospital = he.id_hospital
         WHERE he.id_especialidad = %s
@@ -182,7 +224,7 @@ def buscar_por_especialidad():
             hospital = hospital_row
         
         # Manejar valores None o NaN
-        direccion = hospital.get('direccion', 'No disponible')
+        direccion = f"{hospital['provincia']}, {hospital['ciudad']}, {hospital['calle']} {hospital['altura']}"
         if pd.isna(direccion):
             direccion = 'No disponible'
             
@@ -240,57 +282,74 @@ def buscar_por_especialidad():
                 break
         
         if id_especialidad:
-            # Buscar hospitales
             with st.spinner(f"🔍 Buscando hospitales para **{especialidad_seleccionada}**..."):
                 hospitales = obtener_hospitales_por_especialidad(id_especialidad)
-            
-            # Espacio
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Mostrar resultados
-            if hospitales is not None and not hospitales.empty:
-                
-                # Contador de resultados
-                st.markdown(f"""
-                <div class="results-counter">
-                    <h4 style="margin: 0; color: #2E7D32;">
-                        ✅ Se encontraron <strong>{len(hospitales)} hospitales</strong> 
-                        que ofrecen <strong>{especialidad_seleccionada}</strong>
-                    </h4>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("### 🏥 Resultados de la búsqueda")
-                
-                # Mostrar cada hospital como una tarjeta
-                for idx, hospital in hospitales.iterrows():
-                    mostrar_hospital_card(hospital)
-                
-                # Información adicional
-                st.markdown("---")
-                st.markdown("""
-                <div style='text-align: center; color: #666; padding: 1rem;'>
-                    <p>💡 <strong>Consejo:</strong> Te recomendamos llamar antes de concurrir para confirmar horarios y disponibilidad.</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            else:
-                # No se encontraron resultados
-                st.markdown(f"""
-                <div class="no-results-especialidad">
-                    <h3 style="color: #FF6B6B; margin-bottom: 1rem;">😔 No se encontraron hospitales</h3>
-                    <p style="font-size: 1.1rem; margin-bottom: 1rem;">
-                        No hay hospitales disponibles para la especialidad 
-                        <strong>{especialidad_seleccionada}</strong>
-                    </p>
-                    <p style="color: #888;">
-                        • Intenta seleccionar otra especialidad<br>
-                        • Verifica que la especialidad esté disponible en tu zona<br>
-                        • Contacta al administrador si el problema persiste
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-        
+                if not hospitales.empty:
+                    # 1. Conexión a la base (ajustar según tu config, aquí ejemplo con psycopg2)
+                    conn = psycopg2.connect(
+                        host='aws-0-us-east-1.pooler.supabase.com',
+                        port=6543,
+                        database='postgres',
+                        user='postgres.ihguxvmtprnyhyhstvdp',
+                        password='Csdatos2025!'
+                    )
+                    # 2. Obtener paciente completo desde la base
+                    paciente_id = st.session_state.usuario_autenticado['id_paciente']
+                    paciente = get_paciente_completo(paciente_id, conn)
+                    if not paciente:
+                        st.error("No se pudo obtener la información de dirección del paciente.")
+                        conn.close()
+                        return
+                    # 3. Obtener lat/lon del paciente
+                    lat_pac, lon_pac = get_or_update_latlon_paciente(paciente, conn)
+                    # 4. Para cada hospital, obtener/actualizar lat/lon y calcular distancia
+                    hospitales['latitud'] = None
+                    hospitales['longitud'] = None
+                    hospitales['distancia_km'] = None
+                    for idx, row in hospitales.iterrows():
+                        lat, lon = get_or_update_latlon_hospital(row, conn)
+                        hospitales.at[idx, 'latitud'] = lat
+                        hospitales.at[idx, 'longitud'] = lon
+                        if lat and lon and lat_pac and lon_pac:
+                            hospitales.at[idx, 'distancia_km'] = haversine(lat_pac, lon_pac, lat, lon)
+                        else:
+                            hospitales.at[idx, 'distancia_km'] = float('inf')
+                    # 5. Ordenar hospitales por distancia
+                    hospitales = hospitales.sort_values('distancia_km')
+                    # 6. Mostrar mapa con los 5 más cercanos
+                    if lat_pac and lon_pac:
+                        m = folium.Map(location=[lat_pac, lon_pac], zoom_start=13)
+                        folium.Marker([lat_pac, lon_pac], tooltip="Tu casa", icon=folium.Icon(color="blue")).add_to(m)
+                        for i, row in hospitales.head(5).iterrows():
+                            if row['latitud'] and row['longitud']:
+                                folium.Marker(
+                                    [row['latitud'], row['longitud']],
+                                    tooltip=row['desc_hospital'],
+                                    popup=f"{row['desc_hospital']}<br>{row['calle']} {row['altura']}<br>{row['telefono']}"
+                                ).add_to(m)
+                        st_folium(m, width=700, height=500)
+                    else:
+                        st.warning("No se pudo determinar la ubicación del paciente para mostrar el mapa.")
+                    # 7. Mostrar listado ordenado (como ahora, pero por distancia)
+                    st.markdown(f"""
+                    <div class="results-counter">
+                        <h4 style="margin: 0; color: #2E7D32;">
+                            ✅ Se encontraron <strong>{len(hospitales)} hospitales</strong> 
+                            que ofrecen <strong>{especialidad_seleccionada}</strong>
+                        </h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.markdown("### 🏥 Resultados de la búsqueda (ordenados por cercanía)")
+                    for idx, hospital in hospitales.iterrows():
+                        st.markdown(f"<div style='color:#888; font-size:0.95rem;'>Distancia: {hospital['distancia_km']:.2f} km</div>", unsafe_allow_html=True)
+                        mostrar_hospital_card(hospital)
+                    st.markdown("---")
+                    st.markdown("""
+                    <div style='text-align: center; color: #666; padding: 1rem;'>
+                        <p>💡 <strong>Consejo:</strong> Te recomendamos llamar antes de concurrir para confirmar horarios y disponibilidad.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    conn.close()
         else:
             st.error("❌ No se pudo obtener el ID de la especialidad seleccionada.")
     
@@ -316,7 +375,10 @@ def buscar_por_sintomas(sintoma_a, sintoma_b):
     SELECT DISTINCT 
         e.desc_especialidad as especialidad,
         h.desc_hospital as hospital,
-        h.direccion,
+        h.provincia,
+        h.ciudad,
+        h.calle,
+        h.altura,
         h.telefono,
         'Por Especialidad' as tipo_atencion
     FROM patologia p
@@ -336,7 +398,10 @@ def buscar_por_sintomas(sintoma_a, sintoma_b):
     SELECT DISTINCT 
         CONCAT('Atención directa: ', p.desc_patologia) as especialidad,
         h.desc_hospital as hospital,
-        h.direccion,
+        h.provincia,
+        h.ciudad,
+        h.calle,
+        h.altura,
         h.telefono,
         'Por Patología' as tipo_atencion
     FROM patologia p
@@ -475,7 +540,10 @@ def buscar_por_sintomas():
         SELECT DISTINCT 
             e.desc_especialidad as especialidad,
             h.desc_hospital as hospital,
-            h.direccion,
+            h.provincia,
+            h.ciudad,
+            h.calle,
+            h.altura,
             h.telefono,
             'Por Especialidad' as tipo_atencion
         FROM patologia p
@@ -497,7 +565,10 @@ def buscar_por_sintomas():
         SELECT DISTINCT 
             CONCAT('Atención directa: ', p.desc_patologia) as especialidad,
             h.desc_hospital as hospital,
-            h.direccion,
+            h.provincia,
+            h.ciudad,
+            h.calle,
+            h.altura,
             h.telefono,
             'Por Patología' as tipo_atencion
         FROM patologia p
@@ -528,7 +599,7 @@ def buscar_por_sintomas():
 
     def mostrar_resultado_sintomas(resultado):
         """Muestra una tarjeta de resultado con especialidad y hospital"""
-        direccion = resultado.get('direccion', 'No disponible')
+        direccion = f"{resultado['provincia']}, {resultado['ciudad']}, {resultado['calle']} {resultado['altura']}"
         if pd.isna(direccion):
             direccion = 'No disponible'
             
@@ -579,7 +650,6 @@ def buscar_por_sintomas():
         )
     
     with col2:
-        # Filtrar síntomas para evitar seleccionar el mismo
         if sintoma_a and sintoma_a != "-- Seleccione el primer síntoma --":
             sintomas_b_filtrados = [s for s in sintomas_disponibles if s != sintoma_a]
             opciones_sintoma_b = ["-- Seleccione el segundo síntoma --"] + sintomas_b_filtrados
@@ -598,40 +668,101 @@ def buscar_por_sintomas():
         sintoma_b and sintoma_b != "-- Seleccione el segundo síntoma --" and
         sintoma_b != "-- Primero seleccione el síntoma A --"):
         
-        # Buscar resultados
         with st.spinner(f"🔍 Buscando especialidades para **{sintoma_a}** y **{sintoma_b}**..."):
             resultados = buscar_por_sintomas_local(sintoma_a, sintoma_b)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Mostrar resultados
         if resultados:
-            # Agrupar por especialidad para mostrar contador
+            # --- NUEVO: Ordenar por cercanía y mostrar mapa ---
+            import pandas as pd
+            import psycopg2
+            import folium
+            from streamlit_folium import st_folium
+            from geo_utils import haversine
+            # 1. Conexión a la base
+            conn = psycopg2.connect(
+                host='aws-0-us-east-1.pooler.supabase.com',
+                port=6543,
+                database='postgres',
+                user='postgres.ihguxvmtprnyhyhstvdp',
+                password='Csdatos2025!'
+            )
+            # 2. Obtener paciente completo desde la base
+            paciente_id = st.session_state.usuario_autenticado['id_paciente']
+            paciente = get_paciente_completo(paciente_id, conn)
+            if not paciente:
+                st.error("No se pudo obtener la información de dirección del paciente.")
+                conn.close()
+                return
+            lat_pac, lon_pac = get_or_update_latlon_paciente(paciente, conn)
+            # 3. Convertir resultados a DataFrame para facilitar el manejo
+            df_resultados = pd.DataFrame(resultados)
+            # 4. Para cada hospital, obtener/actualizar lat/lon y calcular distancia
+            df_resultados['latitud'] = None
+            df_resultados['longitud'] = None
+            df_resultados['distancia_km'] = None
+            # Necesitamos el id_hospital para actualizar, pero los resultados no lo traen
+            # Así que buscamos el hospital por nombre para obtener el id y actualizar lat/lon
+            for idx, row in df_resultados.iterrows():
+                # Buscar hospital por nombre exacto
+                cur = conn.cursor()
+                cur.execute("SELECT id_hospital, latitud, longitud, calle, altura, ciudad, provincia FROM hospital WHERE desc_hospital = %s LIMIT 1", (row['hospital'],))
+                h = cur.fetchone()
+                if h:
+                    id_hospital, lat, lon, calle, altura, ciudad, provincia = h
+                    if not lat or not lon:
+                        # Geocodificar si falta
+                        address = f"{calle} {altura}, {ciudad}, {provincia}, Argentina"
+                        lat, lon = geocode_address(address)
+                        if lat and lon:
+                            cur.execute("UPDATE hospital SET latitud=%s, longitud=%s WHERE id_hospital=%s", (lat, lon, id_hospital))
+                            conn.commit()
+                    df_resultados.at[idx, 'latitud'] = lat
+                    df_resultados.at[idx, 'longitud'] = lon
+                    if lat and lon and lat_pac and lon_pac:
+                        df_resultados.at[idx, 'distancia_km'] = haversine(lat_pac, lon_pac, lat, lon)
+                    else:
+                        df_resultados.at[idx, 'distancia_km'] = float('inf')
+                else:
+                    df_resultados.at[idx, 'distancia_km'] = float('inf')
+            # 5. Ordenar por distancia
+            df_resultados = df_resultados.sort_values('distancia_km')
+            # 6. Mostrar mapa con los 5 más cercanos
+            if lat_pac and lon_pac:
+                m = folium.Map(location=[lat_pac, lon_pac], zoom_start=13)
+                folium.Marker([lat_pac, lon_pac], tooltip="Tu casa", icon=folium.Icon(color="blue")).add_to(m)
+                for i, row in df_resultados.head(5).iterrows():
+                    if row['latitud'] and row['longitud']:
+                        folium.Marker(
+                            [row['latitud'], row['longitud']],
+                            tooltip=row['hospital'],
+                            popup=f"{row['hospital']}<br>{row['ciudad']}<br>{row['calle']} {row['altura']}<br>{row['telefono']}"
+                        ).add_to(m)
+                st_folium(m, width=700, height=500)
+            else:
+                st.warning("No se pudo determinar la ubicación del paciente para mostrar el mapa.")
+            # 7. Mostrar listado ordenado (como ahora, pero por distancia)
             especialidades_unicas = list(set([r['especialidad'] for r in resultados]))
-            
             st.markdown(f"""
             <div class="results-counter">
                 <h4 style="margin: 0; color: #2E7D32;">
-                    ✅ Se encontraron <strong>{len(resultados)} opciones</strong> 
+                    ✅ Se encontraron <strong>{len(df_resultados)} opciones</strong> 
                     en <strong>{len(especialidades_unicas)} especialidades</strong>
                 </h4>
             </div>
             """, unsafe_allow_html=True)
-            
-            st.markdown("### 🏥 Resultados de la búsqueda")
-            
-            # Mostrar cada resultado
-            for resultado in resultados:
+            st.markdown("### 🏥 Resultados de la búsqueda (ordenados por cercanía)")
+            for idx, resultado in df_resultados.iterrows():
+                st.markdown(f"<div style='color:#888; font-size:0.95rem;'>Distancia: {resultado['distancia_km']:.2f} km</div>", unsafe_allow_html=True)
                 mostrar_resultado_sintomas(resultado)
-            
-            # Información adicional
             st.markdown("---")
             st.markdown("""
             <div style='text-align: center; color: #666; padding: 1rem;'>
                 <p>💡 <strong>Consejo:</strong> Estos resultados son orientativos. Te recomendamos consultar con el especialista para un diagnóstico preciso.</p>
             </div>
             """, unsafe_allow_html=True)
-            
+            conn.close()
         else:
             st.markdown(f"""
             <div class="no-results-especialidad">
@@ -647,9 +778,7 @@ def buscar_por_sintomas():
                 </p>
             </div>
             """, unsafe_allow_html=True)
-    
     else:
-        # Mostrar mensaje de ayuda
         st.info("👆 Selecciona dos síntomas diferentes para ver las especialidades y hospitales recomendados.")
 
 
@@ -811,43 +940,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-def mostrar_resultado_sintomas(resultado):
-    """Muestra una tarjeta de resultado con especialidad/patología y hospital"""
-    direccion = resultado.get('direccion', 'No disponible')
-    if pd.isna(direccion):
-        direccion = 'No disponible'
-        
-    telefono = resultado.get('telefono', 'No disponible')
-    if pd.isna(telefono):
-        telefono = 'No disponible'
-    
-    # Determinar el color del tag según el tipo de atención
-    tipo_atencion = resultado.get('tipo_atencion', 'Por Especialidad')
-    if tipo_atencion == 'Por Patología':
-        tag_color = "background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);"
-        icon = "🩺"
-    else:
-        tag_color = "background: linear-gradient(135deg, #E91E63 0%, #F48FB1 100%);"
-        icon = "👨‍⚕️"
-    
-    st.markdown(f"""
-    <div class="hospital-card-sintomas">
-        <div style="margin-bottom: 1rem;">
-            <span class="specialty-tag" style="{tag_color}">
-                {icon} {resultado['especialidad']}
-            </span>
-        </div>
-        <div class="hospital-name-especialidad">
-            <span class="hospital-icon-especialidad">🏥</span>
-            {resultado['hospital']}
-        </div>
-        <div class="hospital-info-especialidad">
-            <span class="hospital-icon-especialidad">📍</span>
-            <strong>Dirección:</strong> &nbsp; {direccion}
-        </div>
-        <div class="hospital-info-especialidad">
-            <span class="hospital-icon-especialidad">📞</span>
-            <strong>Teléfono:</strong> &nbsp; {telefono}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)

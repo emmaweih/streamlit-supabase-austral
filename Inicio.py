@@ -2,11 +2,21 @@ import streamlit as st
 import functions as f
 from datetime import date
 
+# Utilidad para mostrar dirección sin repetir provincia y ciudad
+
+def formatear_direccion(provincia, ciudad, calle, altura):
+    if provincia and ciudad and provincia.strip().lower() == ciudad.strip().lower():
+        return f"{provincia}, {calle}, {altura}"
+    else:
+        return f"{provincia}, {ciudad}, {calle}, {altura}"
 
 min_date = date(1900, 1, 1)  # Fecha mínima (ajustar a tus necesidades)
 max_date = date(2100, 12, 31)  # Fecha máxima (ajustar a tus necesidades)
 
-def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, direccion, codigo_postal, obra_social, correo, contraseña):
+# Opciones de obra social
+OBRAS_SOCIALES = ["Seleccionar...", "OSDE", "PAMI", "Swiss Medical", "Galeno", "Medicus"]
+
+def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, provincia, ciudad, calle, altura, obra_social, correo, contraseña):
     """
     Registra un nuevo usuario/paciente en la tabla paciente.
     
@@ -16,8 +26,10 @@ def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, direccio
         nombre (str): Nombre del paciente
         fecha_de_nacimiento (str/date): Fecha de nacimiento
         sexo (str): Sexo del paciente
-        direccion (str): Dirección del paciente
-        codigo_postal (str): Código postal
+        provincia (str): Provincia del paciente
+        ciudad (str): Cuidad del paciente
+        calle (str): Calle del paciente
+        altura (str): Altura de la calle del paciente
         obra_social (str): Obra social del paciente
         correo (str): Email del paciente
         contraseña (str): Contraseña del paciente
@@ -35,14 +47,14 @@ def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, direccio
         query = """
             INSERT INTO paciente (
                 id_paciente, apellido, nombre, fecha_de_nacimiento,
-                sexo, direccion, codigo_postal, obra_social,
+                sexo, provincia, ciudad, calle, altura, obra_social,
                 email, contraseña
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         params = (
             dni, apellido, nombre, fecha_de_nacimiento,
-            sexo, direccion, codigo_postal, obra_social,
+            sexo, provincia, ciudad, calle, altura, obra_social,
             correo, contraseña
         )
         
@@ -231,7 +243,7 @@ def buscar_hospitales_similares(termino_busqueda, limite=5):
     finally:
         conn.close()
 
-def agregar_nuevo_hospital(nombre, direccion, codigo_postal, telefono):
+def agregar_nuevo_hospital(nombre, provincia, ciudad, calle, altura, telefono):
     """
     Agrega un nuevo hospital a la base de datos
     Retorna el hospital creado con su ID generado automáticamente
@@ -258,17 +270,17 @@ def agregar_nuevo_hospital(nombre, direccion, codigo_postal, telefono):
                 
                 # Insertar con ID específico
                 cursor.execute("""
-                    INSERT INTO hospital (id_hospital, desc_hospital, direccion, codigo_postal, telefono) 
-                    VALUES (%s, %s, %s, %s, %s) 
+                    INSERT INTO hospital (id_hospital, desc_hospital, provincia, ciudad, calle, altura, telefono) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) 
                     RETURNING *
-                """, (next_id, nombre.strip(), direccion.strip(), codigo_postal.strip(), telefono.strip()))
+                """, (next_id, nombre.strip(), provincia.strip(), ciudad.strip(), calle.strip(), altura.strip(), telefono.strip()))
             else:
                 # La tabla tiene secuencia, insertar normalmente
                 cursor.execute("""
-                    INSERT INTO hospital (desc_hospital, direccion, codigo_postal, telefono) 
-                    VALUES (%s, %s, %s, %s) 
+                    INSERT INTO hospital (desc_hospital, provincia, ciudad, calle, altura, telefono) 
+                    VALUES (%s, %s, %s, %s, %s, %s) 
                     RETURNING *
-                """, (nombre.strip(), direccion.strip(), codigo_postal.strip(), telefono.strip()))
+                """, (nombre.strip(), provincia.strip(), ciudad.strip(), calle.strip(), altura.strip(), telefono.strip()))
             
             # Obtener el hospital recién creado
             row = cursor.fetchone()
@@ -292,7 +304,7 @@ def agregar_nuevo_hospital(nombre, direccion, codigo_postal, telefono):
     finally:
         conn.close()
 
-def obtener_o_crear_hospital(nombre, direccion=None, codigo_postal=None, telefono=None):
+def obtener_o_crear_hospital(nombre, provincia=None, ciudad=None, calle=None, altura=None, telefono=None):
     """
     Busca un hospital por nombre. Si no existe, lo crea con los datos proporcionados.
     Retorna el hospital (existente o nuevo) con su ID
@@ -309,13 +321,13 @@ def obtener_o_crear_hospital(nombre, direccion=None, codigo_postal=None, telefon
             }
         
         # Si no existe, crear uno nuevo
-        if not direccion or not codigo_postal or not telefono:
+        if not provincia or not ciudad or not calle or not altura or not telefono:
             return {
                 'success': False,
-                'error': 'Se requieren dirección, código postal y teléfono para crear un nuevo hospital'
+                'error': 'Se requieren provincia, ciudad, calle, altura y teléfono para crear un nuevo hospital'
             }
         
-        resultado_nuevo = agregar_nuevo_hospital(nombre, direccion, codigo_postal, telefono)
+        resultado_nuevo = agregar_nuevo_hospital(nombre, provincia, ciudad, calle, altura, telefono)
         
         if resultado_nuevo['success']:
             return {
@@ -334,7 +346,7 @@ def obtener_o_crear_hospital(nombre, direccion=None, codigo_postal=None, telefon
         }
 
 def registrar_medico_con_hospital(dni, apellido, nombre, sexo, nombre_hospital, 
-                                direccion_hospital=None, codigo_postal_hospital=None, telefono_hospital=None,
+                                provincia_hospital=None, ciudad_hospital=None, calle_hospital=None, altura_hospital=None, telefono_hospital=None,
                                 telefono_medico=None, correo=None, contraseña=None):
     """
     Registra un médico y maneja la lógica del hospital (crear o usar existente)
@@ -343,8 +355,10 @@ def registrar_medico_con_hospital(dni, apellido, nombre, sexo, nombre_hospital,
         # Paso 1: Obtener o crear el hospital
         resultado_hospital = obtener_o_crear_hospital(
             nombre=nombre_hospital,
-            direccion=direccion_hospital,
-            codigo_postal=codigo_postal_hospital,
+            provincia=provincia_hospital,
+            ciudad=ciudad_hospital,
+            calle=calle_hospital,
+            altura=altura_hospital,
             telefono=telefono_hospital
         )
         
@@ -738,7 +752,7 @@ def mostrar_menu_navegacion():
         if st.button("📤 Cargar Nuevo Estudio", use_container_width=True):
             st.switch_page("pages/Cargar Nuevo Estudio.py")
 
-def actualizar_paciente(dni, apellido, nombre, fecha_de_nacimiento, sexo, direccion, codigo_postal, obra_social, correo, contraseña):
+def actualizar_paciente(dni, apellido, nombre, fecha_de_nacimiento, sexo, provincia, ciudad, calle, altura, obra_social, correo, contraseña):
     """
     Actualiza la información de un paciente en la base de datos
     """
@@ -751,12 +765,11 @@ def actualizar_paciente(dni, apellido, nombre, fecha_de_nacimiento, sexo, direcc
             cursor.execute("""
                 UPDATE paciente 
                 SET apellido = %s, nombre = %s, fecha_de_nacimiento = %s,
-                    sexo = %s, direccion = %s, codigo_postal = %s, 
+                    sexo = %s, provincia = %s, ciudad = %s, calle = %s, altura = %s,
                     obra_social = %s, email = %s, contraseña = %s
                 WHERE id_paciente = %s
                 RETURNING *
-            """, (apellido, nombre, fecha_de_nacimiento, sexo, direccion, 
-                  codigo_postal, obra_social, correo, contraseña, dni))
+            """, (apellido, nombre, fecha_de_nacimiento, sexo, provincia, ciudad, calle, altura, obra_social, correo, contraseña, dni))
             
             row = cursor.fetchone()
             
@@ -1055,8 +1068,9 @@ elif st.session_state.pantalla == "registro":
             if hospitales_existentes:
                 st.info("**Hospitales ya registrados:**")
                 for i, hosp in enumerate(hospitales_existentes):
+                    direccion = formatear_direccion(hosp.get('provincia', ''), hosp.get('ciudad', ''), hosp.get('calle', ''), hosp.get('altura', ''))
                     if st.button(
-                        f"• **{hosp['desc_hospital']}** - {hosp['direccion']} (CP: {hosp.get('codigo_postal', 'N/A')})", 
+                        f"• **{hosp['desc_hospital']}** - {direccion} ", 
                         key=f"hospital_{i}_{hosp['id_hospital']}"
                     ):
                         # Seleccionar este hospital
@@ -1089,17 +1103,10 @@ elif st.session_state.pantalla == "registro":
                     hospital_encontrado = buscar_hospital_por_nombre(hospital)
                     
                     if hospital_encontrado:
-                        st.session_state.hospital_existe = True
-                        st.session_state.hospital_verificado = True
-                        st.session_state.mostrar_campos_hospital = False
-                        st.session_state.datos_hospital_temp = {
-                            'nombre': hospital,
-                            'datos_existente': hospital_encontrado
-                        }
+                        direccion = formatear_direccion(hospital_encontrado.get('provincia', ''), hospital_encontrado.get('ciudad', ''), hospital_encontrado.get('calle', ''), hospital_encontrado.get('altura', ''))
                         st.success(f"✅ Hospital encontrado: {hospital_encontrado['desc_hospital']}")
-                        st.info(f"📍 {hospital_encontrado['direccion']}")
-                        st.info(f"📬 CP: {hospital_encontrado.get('codigo_postal', 'N/A')}")
-                        st.info(f"📞 {hospital_encontrado['telefono']}")
+                        st.info(f"📍 {direccion}")
+                        st.info(f"📞 {hospital_encontrado.get('telefono', 'N/A')}")
 
                     else:
                         st.session_state.hospital_existe = False
@@ -1112,23 +1119,26 @@ elif st.session_state.pantalla == "registro":
 
         
         # Campos adicionales si el hospital no existe
-        direccion_hospital = None
-        codigo_postal_hospital = None
+        provincia_hospital = None
+        ciudad_hospital = None
+        calle_hospital = None
+        altura_hospital = None
         telefono_hospital = None
         
         if st.session_state.mostrar_campos_hospital:
             st.markdown("### Datos del Nuevo Hospital")
-            direccion_hospital = st.text_input("📍 Dirección del Hospital", 
-                                             value=st.session_state.datos_hospital_temp.get('direccion', ''))
-            codigo_postal_hospital = st.text_input("📬 Código Postal del Hospital", 
-                                                 value=st.session_state.datos_hospital_temp.get('codigo_postal', ''))
-            telefono_hospital = st.text_input("📞 Teléfono del Hospital", 
-                                            value=st.session_state.datos_hospital_temp.get('telefono', ''))
+            provincia_hospital = st.text_input("🌎 Provincia", value=st.session_state.datos_hospital_temp.get('provincia', ''))
+            ciudad_hospital = st.text_input("🏙️ Ciudad", value=st.session_state.datos_hospital_temp.get('ciudad', ''))
+            calle_hospital = st.text_input("🚏 Calle", value=st.session_state.datos_hospital_temp.get('calle', ''))
+            altura_hospital = st.text_input("🔢 Altura", value=st.session_state.datos_hospital_temp.get('altura', ''))
+            telefono_hospital = st.text_input("📞 Teléfono del Hospital", value=st.session_state.datos_hospital_temp.get('telefono', ''))
             
             # Guardar datos temporalmente
             st.session_state.datos_hospital_temp.update({
-                'direccion': direccion_hospital,
-                'codigo_postal': codigo_postal_hospital,
+                'provincia': provincia_hospital,
+                'ciudad': ciudad_hospital,
+                'calle': calle_hospital,
+                'altura': altura_hospital,
                 'telefono': telefono_hospital
             })
         
@@ -1139,10 +1149,12 @@ elif st.session_state.pantalla == "registro":
     max_value=max_date,  # Establecer el límite superior
     value=date.today()  # Establece la fecha predeterminada (la fecha de hoy)
     )
-        direccion = st.text_input("🏠 Dirección")
-        codigo_postal = st.text_input("📬 Código postal")
-        obra_social = st.text_input("🏥 Obra social")
-        correo = st.text_input("📧 Correo electrónico")
+        provincia = st.text_input("🌎 Provincia")
+        ciudad = st.text_input("🏙️ Ciudad")
+        calle = st.text_input("🚏 Calle")
+        altura = st.text_input("🔢 Altura")
+        obra_social = st.selectbox("🏥 Obra social", OBRAS_SOCIALES, index=0)
+        correo = st.text_input("�� Correo electrónico")
         contraseña = st.text_input("🔑 Contraseña", type="password")
     
     # Botón de registro
@@ -1163,15 +1175,17 @@ elif st.session_state.pantalla == "registro":
         
         if tipo == "paciente":
             # Lógica para paciente (sin cambios)
-            if dni and apellido and nombre and fecha_de_nacimiento and sexo and direccion and codigo_postal and obra_social and correo and contraseña:
+            if dni and apellido and nombre and fecha_de_nacimiento and sexo and provincia and ciudad and calle and altura and obra_social and correo and contraseña:
                 resultado = registrar_usuario(
                     dni=dni,
                     apellido=apellido,
                     nombre=nombre,
                     fecha_de_nacimiento=fecha_de_nacimiento,
                     sexo=sexo,
-                    direccion=direccion,
-                    codigo_postal=codigo_postal,
+                    provincia=provincia,
+                    ciudad=ciudad,
+                    calle=calle,
+                    altura=altura,
                     obra_social=obra_social,
                     correo=correo,
                     contraseña=contraseña
@@ -1191,7 +1205,7 @@ elif st.session_state.pantalla == "registro":
             # Si el hospital no existe, validar que se hayan ingresado los datos adicionales
             datos_hospital_completos = True
             if st.session_state.mostrar_campos_hospital:
-                datos_hospital_completos = direccion_hospital and codigo_postal_hospital and telefono_hospital
+                datos_hospital_completos = provincia_hospital and ciudad_hospital and calle_hospital and altura_hospital and telefono_hospital
             
             if campos_basicos_completos and hospital_verificado_ok and datos_hospital_completos:
                 # Proceder con el registro
@@ -1201,8 +1215,10 @@ elif st.session_state.pantalla == "registro":
                     nombre=nombre,
                     sexo=sexo,
                     nombre_hospital=hospital,
-                    direccion_hospital=direccion_hospital,
-                    codigo_postal_hospital=codigo_postal_hospital,
+                    provincia_hospital= provincia_hospital,
+                    ciudad_hospital= ciudad_hospital,
+                    calle_hospital= calle_hospital,
+                    altura_hospital= altura_hospital,
                     telefono_hospital=telefono_hospital,
                     telefono_medico=telefono,
                     correo=correo,
@@ -1240,8 +1256,10 @@ elif st.session_state.pantalla == "registro":
                     st.write("- Verificar el hospital usando el botón 🔍")
                 
                 if st.session_state.mostrar_campos_hospital and not datos_hospital_completos:
-                    if not direccion_hospital: st.write("- Dirección del hospital")
-                    if not codigo_postal_hospital: st.write("- Código postal del hospital")
+                    if not provincia_hospital: st.write("- Provincia del hospital")
+                    if not ciudad_hospital: st.write("- Ciudad del hospital")
+                    if not calle_hospital: st.write("- Calle del hospital")
+                    if not altura_hospital: st.write("- Altua del hospital")
                     if not telefono_hospital: st.write("- Teléfono del hospital")
     
     # Botón para volver
@@ -1285,8 +1303,8 @@ elif st.session_state.pantalla == "perfil":
         
         if tipo == "paciente":
             st.write(f"**📅 Fecha de nacimiento:** {usuario.get('fecha_de_nacimiento', 'N/A')}")
-            st.write(f"**🏠 Dirección:** {usuario.get('direccion', 'N/A')}")
-            st.write(f"**📬 Código postal:** {usuario.get('codigo_postal', 'N/A')}")
+            direccion = formatear_direccion(usuario.get('provincia', ''), usuario.get('ciudad', ''), usuario.get('calle', ''), usuario.get('altura', ''))
+            st.write(f"**Dirección:** {direccion}")
             st.write(f"**🏥 Obra social:** {usuario.get('obra_social', 'N/A')}")
         else:  # médico
             st.write(f"**📞 Teléfono:** {usuario.get('telefono', 'N/A')}")
@@ -1352,18 +1370,20 @@ elif st.session_state.pantalla == "editar_perfil":
             col1, col2 = st.columns(2)
             
             with col1:
-                direccion = st.text_input("🏠 Dirección", value=usuario.get('direccion', ''))
-                codigo_postal = st.text_input("📬 Código postal", value=usuario.get('codigo_postal', ''))
+                provincia = st.text_input("🌎 Provincia", value=usuario.get('provincia', ''))
+                ciudad = st.text_input("🏙️ Ciudad", value=usuario.get('ciudad', ''))
+                calle = st.text_input("🚏 Calle", value=usuario.get('calle', ''))
+                altura = st.text_input("🔢 Altura", value=usuario.get('altura', ''))
             
             with col2:
-                obra_social = st.text_input("🏥 Obra social", value=usuario.get('obra_social', ''))
+                obra_social = st.selectbox("🏥 Obra social", OBRAS_SOCIALES, index=OBRAS_SOCIALES.index(usuario.get('obra_social')) if usuario.get('obra_social') in OBRAS_SOCIALES else 0)
         else:
             st.subheader("🏥 Información del Hospital")
             hospital_info = obtener_hospital_por_id(usuario.get('id_hospital'))
             if hospital_info:
+                direccion = formatear_direccion(hospital_info.get('provincia', ''), hospital_info.get('ciudad', ''), hospital_info.get('calle', ''), hospital_info.get('altura', ''))
                 st.info(f"🏥 **Hospital:** {hospital_info.get('desc_hospital', 'N/A')}")
-                st.info(f"📍 **Dirección:** {hospital_info.get('direccion', 'N/A')}")
-                st.info(f"📬 **CP:** {hospital_info.get('codigo_postal', 'N/A')}")
+                st.info(f"📍 **Dirección:** {direccion}")
                 st.info(f"📞 **Teléfono:** {hospital_info.get('telefono', 'N/A')}")
             else:
                 st.warning("⚠️ No se pudo obtener la información del hospital")
@@ -1389,7 +1409,7 @@ elif st.session_state.pantalla == "editar_perfil":
                 # Validar campos obligatorios
                 campos_obligatorios = [nombre, apellido, correo]
                 if tipo == "paciente":
-                    campos_obligatorios.extend([direccion, codigo_postal, obra_social])
+                    campos_obligatorios.extend([provincia, ciudad, calle, obra_social])
                 else:
                     campos_obligatorios.append(telefono)
                 
@@ -1404,8 +1424,10 @@ elif st.session_state.pantalla == "editar_perfil":
                             nombre=nombre,
                             fecha_de_nacimiento=fecha_de_nacimiento,
                             sexo=sexo,
-                            direccion=direccion,
-                            codigo_postal=codigo_postal,
+                            provincia=provincia,
+                            ciudad=ciudad,
+                            calle=calle,
+                            altura=altura,
                             obra_social=obra_social,
                             correo=correo,
                             contraseña=contraseña_final
