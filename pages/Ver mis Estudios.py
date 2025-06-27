@@ -114,6 +114,291 @@ def obtener_paciente_por_id(id_paciente):
     """
     return execute_query_simple(query, params=(id_paciente,))
 
+def generar_html_estudio_individual(estudio, nombre_paciente, dni_paciente):
+    """
+    Genera HTML para un estudio individual
+    """
+    fecha_formatted = estudio['fecha_estudio'].strftime("%d/%m/%Y") if pd.notna(estudio['fecha_estudio']) else "Fecha no disponible"
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Estudio Médico - {estudio['desc_estudio']}</title>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }}
+            .container {{
+                max-width: 800px;
+                margin: 0 auto;
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 3px solid #1f77b4;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }}
+            .header h1 {{
+                color: #1f77b4;
+                margin: 0;
+                font-size: 2.5em;
+            }}
+            .patient-info {{
+                background-color: #e8f4f8;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            }}
+            .study-details {{
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            }}
+            .result-section {{
+                background-color: #fff3cd;
+                padding: 20px;
+                border-radius: 8px;
+                border-left: 4px solid #ffc107;
+            }}
+            .label {{
+                font-weight: bold;
+                color: #495057;
+                margin-bottom: 5px;
+            }}
+            .value {{
+                color: #212529;
+                margin-bottom: 15px;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #dee2e6;
+                color: #6c757d;
+                font-size: 0.9em;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📋 Estudio Médico</h1>
+                <p>Reporte Individual</p>
+            </div>
+            
+            <div class="patient-info">
+                <div class="label">👤 Paciente:</div>
+                <div class="value">{nombre_paciente}</div>
+                <div class="label">🆔 DNI:</div>
+                <div class="value">{dni_paciente}</div>
+            </div>
+            
+            <div class="study-details">
+                <div class="label">📋 Tipo de Estudio:</div>
+                <div class="value">{estudio['desc_estudio']}</div>
+                
+                <div class="label">📅 Fecha del Estudio:</div>
+                <div class="value">{fecha_formatted}</div>
+                
+                <div class="label">👨‍⚕️ Médico Responsable:</div>
+                <div class="value">{estudio['nombre_medico']}</div>
+                
+                <div class="label">🏥 Hospital:</div>
+                <div class="value">{estudio['hospital']}</div>
+            </div>
+            
+            <div class="result-section">
+                <div class="label">📋 Resultados:</div>
+                <div class="value">
+                    {estudio['resultado'] if pd.notna(estudio['resultado']) and estudio['resultado'] else 'No disponibles'}
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Documento generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')}</p>
+                <p>Sistema de Gestión de Estudios Médicos</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
+def generar_html_todos_estudios(estudios_df, nombre_paciente, dni_paciente):
+    """
+    Genera HTML para todos los estudios del paciente
+    """
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Historial Completo de Estudios Médicos</title>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }}
+            .container {{
+                max-width: 1000px;
+                margin: 0 auto;
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 3px solid #1f77b4;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }}
+            .header h1 {{
+                color: #1f77b4;
+                margin: 0;
+                font-size: 2.5em;
+            }}
+            .patient-info {{
+                background-color: #e8f4f8;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                text-align: center;
+            }}
+            .study-card {{
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                border-left: 4px solid #1f77b4;
+            }}
+            .study-title {{
+                color: #1f77b4;
+                font-weight: bold;
+                font-size: 1.2em;
+                margin-bottom: 10px;
+            }}
+            .study-date {{
+                color: #6c757d;
+                font-style: italic;
+                margin-bottom: 15px;
+            }}
+            .study-details {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+                margin-bottom: 15px;
+            }}
+            .detail-item {{
+                background-color: white;
+                padding: 10px;
+                border-radius: 5px;
+            }}
+            .label {{
+                font-weight: bold;
+                color: #495057;
+                font-size: 0.9em;
+            }}
+            .value {{
+                color: #212529;
+                margin-top: 5px;
+            }}
+            .result-section {{
+                background-color: #fff3cd;
+                padding: 15px;
+                border-radius: 5px;
+                border-left: 3px solid #ffc107;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #dee2e6;
+                color: #6c757d;
+                font-size: 0.9em;
+            }}
+            .summary {{
+                background-color: #d1ecf1;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                text-align: center;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📋 Historial Completo de Estudios Médicos</h1>
+                <p>Reporte Completo</p>
+            </div>
+            
+            <div class="patient-info">
+                <h3>👤 {nombre_paciente}</h3>
+                <p>🆔 DNI: {dni_paciente}</p>
+            </div>
+            
+            <div class="summary">
+                <h3>📊 Resumen</h3>
+                <p>Total de estudios: {len(estudios_df)}</p>
+                <p>Período: {estudios_df['fecha_estudio'].min().strftime('%d/%m/%Y') if not estudios_df.empty else 'N/A'} - {estudios_df['fecha_estudio'].max().strftime('%d/%m/%Y') if not estudios_df.empty else 'N/A'}</p>
+            </div>
+    """
+    
+    # Agregar cada estudio
+    for index, estudio in estudios_df.iterrows():
+        fecha_formatted = estudio['fecha_estudio'].strftime("%d/%m/%Y") if pd.notna(estudio['fecha_estudio']) else "Fecha no disponible"
+        
+        html += f"""
+            <div class="study-card">
+                <div class="study-title">📋 {estudio['desc_estudio']}</div>
+                <div class="study-date">📅 {fecha_formatted}</div>
+                
+                <div class="study-details">
+                    <div class="detail-item">
+                        <div class="label">👨‍⚕️ Médico:</div>
+                        <div class="value">{estudio['nombre_medico']}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">🏥 Hospital:</div>
+                        <div class="value">{estudio['hospital']}</div>
+                    </div>
+                </div>
+                
+                <div class="result-section">
+                    <div class="label">📋 Resultados:</div>
+                    <div class="value">
+                        {estudio['resultado'] if pd.notna(estudio['resultado']) and estudio['resultado'] else 'No disponibles'}
+                    </div>
+                </div>
+            </div>
+        """
+    
+    html += f"""
+            <div class="footer">
+                <p>Documento generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')}</p>
+                <p>Sistema de Gestión de Estudios Médicos</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
 def main():
     # Configuración de la página
     st.set_page_config(
@@ -301,7 +586,7 @@ def main():
         fecha_formatted = estudio['fecha_estudio'].strftime("%d/%m/%Y") if pd.notna(estudio['fecha_estudio']) else "Fecha no disponible"
         
         # Crear expander para cada estudio (actúa como frame)
-        with st.expander(f"📋 {estudio['desc_estudio']} - 📅 {fecha_formatted}", expanded=True):
+        with st.expander(f"📋 {estudio['desc_estudio']} - 📅 {fecha_formatted}", expanded=False):
             # Información del paciente
             st.info(f"👤 **Paciente:** {estudio['nombre_paciente']}")
             
@@ -314,40 +599,61 @@ def main():
                 st.markdown(f"*{estudio['resultado']}*")
             else:
                 st.warning("📋 **Resultados:** No disponibles")
+            
+            # Botones de descarga individual
+            # Generar HTML para este estudio individual
+            html_individual = generar_html_estudio_individual(estudio, nombre_paciente, dni_paciente)
+            st.download_button(
+                label="📄 Descargar Estudio",
+                data=html_individual,
+                file_name=f"estudio_{estudio['desc_estudio'].replace(' ', '_')}_{fecha_formatted.replace('/', '')}.html",
+                mime="text/html",
+                key=f"html_{index}"
+            )
     
-    # Estadísticas adicionales
+    # Sección de descarga completa
+    st.markdown("---")
+    
+    # Descargar todos como HTML
+    html_completo = generar_html_todos_estudios(estudios_filtrados, nombre_paciente, dni_paciente)
+    st.download_button(
+        label="📄 Descargar todos los estudios",
+        data=html_completo,
+        file_name=f"historial_completo_estudios_{datetime.now().strftime('%Y%m%d')}.html",
+        mime="text/html",
+        key="html_completo"
+    )
+
+    # Estadísticas de los estudios (mostradas al final)
     if total_estudios > 1:
-        with st.expander("📈 Estadísticas de mis estudios"):
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Total de estudios", total_estudios)
-            
-            with col2:
-                medicos_unicos = estudios_filtrados['nombre_medico'].nunique()
-                st.metric("Médicos diferentes", medicos_unicos)
-            
-            with col3:
-                hospitales_unicos = estudios_filtrados['hospital'].nunique()
-                st.metric("Hospitales visitados", hospitales_unicos)
-            
-            # Mostrar estudios por mes (si hay datos suficientes)
-            if total_estudios > 3:
-                st.subheader("📅 Estudios por mes")
-                estudios_por_mes = estudios_filtrados.copy()
-                estudios_por_mes['mes_año'] = estudios_por_mes['fecha_estudio'].dt.strftime('%Y-%m')
-                estudios_por_mes_count = estudios_por_mes.groupby('mes_año').size().reset_index(name='cantidad')
-                st.bar_chart(estudios_por_mes_count.set_index('mes_año')['cantidad'])
-    
-    # Botón para exportar (opcional)
-    if st.button("📥 Descargar mis estudios"):
-        csv = estudios_filtrados.to_csv(index=False)
-        st.download_button(
-            label="Descargar como CSV",
-            data=csv,
-            file_name=f"mis_estudios_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
+        st.markdown("---")
+        st.subheader("📈 Estadísticas de mis estudios")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total de estudios", total_estudios)
+        
+        with col2:
+            medicos_unicos = estudios_filtrados['nombre_medico'].nunique()
+            st.metric("Médicos diferentes", medicos_unicos)
+        
+        with col3:
+            hospitales_unicos = estudios_filtrados['hospital'].nunique()
+            st.metric("Hospitales visitados", hospitales_unicos)
+        
+        # Mostrar estudios por mes (si hay datos suficientes)
+        if total_estudios > 3:
+            st.subheader("📅 Estudios por mes")
+            estudios_por_mes = estudios_filtrados.copy()
+            estudios_por_mes['mes_año'] = estudios_por_mes['fecha_estudio'].dt.strftime('%Y-%m')
+            estudios_por_mes_count = estudios_por_mes.groupby('mes_año').size().reset_index(name='cantidad')
+            st.bar_chart(estudios_por_mes_count.set_index('mes_año')['cantidad'])
+
+    # Separador adicional antes del botón de volver
+    st.markdown("---")
+    st.markdown("")
+    st.markdown("")
 
     if st.button("🔙 Volver al perfil"):
         st.switch_page("Inicio.py")

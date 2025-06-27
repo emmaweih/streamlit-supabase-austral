@@ -1063,7 +1063,7 @@ elif st.session_state.pantalla == "registro":
         
 
             # Opcional: Mostrar hospitales existentes como ayuda
-        with st.expander("📋 Seleccionar Hospital Existente", expanded=True):
+        with st.expander("📋 Seleccionar Hospital Existente", expanded=False):
             hospitales_existentes = obtener_hospitales_existentes()
             if hospitales_existentes:
                 st.info("**Hospitales ya registrados:**")

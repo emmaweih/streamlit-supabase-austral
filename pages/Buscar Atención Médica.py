@@ -223,11 +223,17 @@ def buscar_por_especialidad():
         else:
             hospital = hospital_row
         
-        # Manejar valores None o NaN
-        direccion = f"{hospital['provincia']}, {hospital['ciudad']}, {hospital['calle']} {hospital['altura']}"
-        if pd.isna(direccion):
+        provincia = hospital.get('provincia', '')
+        ciudad = hospital.get('ciudad', '')
+        calle = hospital.get('calle', '')
+        altura = hospital.get('altura', '')
+        if provincia == ciudad:
+            direccion = f"{provincia}, {calle} {altura}"
+        else:
+            direccion = f"{provincia}, {ciudad}, {calle} {altura}"
+        if pd.isna(direccion) or direccion.strip(", ") == "":
             direccion = 'No disponible'
-            
+        
         telefono = hospital.get('telefono', 'No disponible')
         if pd.isna(telefono):
             telefono = 'No disponible'
@@ -325,12 +331,13 @@ def buscar_por_especialidad():
                                 folium.Marker(
                                     [row['latitud'], row['longitud']],
                                     tooltip=row['desc_hospital'],
-                                    popup=f"{row['desc_hospital']}<br>{row['calle']} {row['altura']}<br>{row['telefono']}"
+                                    popup=folium.Popup(f"{row['ciudad']}<br>{row['calle']} {row['altura']}", max_width=400),
+                                    icon=folium.Icon(color="red")
                                 ).add_to(m)
-                        st_folium(m, width=700, height=500)
+                        st_folium(m, width=700, height=400)
                     else:
                         st.warning("No se pudo determinar la ubicación del paciente para mostrar el mapa.")
-                    # 7. Mostrar listado ordenado (como ahora, pero por distancia)
+                    # 7. Mostrar listado ordenado (pero por distancia)
                     st.markdown(f"""
                     <div class="results-counter">
                         <h4 style="margin: 0; color: #2E7D32;">
@@ -599,14 +606,19 @@ def buscar_por_sintomas():
 
     def mostrar_resultado_sintomas(resultado):
         """Muestra una tarjeta de resultado con especialidad y hospital"""
-        direccion = f"{resultado['provincia']}, {resultado['ciudad']}, {resultado['calle']} {resultado['altura']}"
-        if pd.isna(direccion):
+        provincia = resultado.get('provincia', '')
+        ciudad = resultado.get('ciudad', '')
+        calle = resultado.get('calle', '')
+        altura = resultado.get('altura', '')
+        if provincia == ciudad:
+            direccion = f"{provincia}, {calle} {altura}"
+        else:
+            direccion = f"{provincia}, {ciudad}, {calle} {altura}"
+        if pd.isna(direccion) or direccion.strip(", ") == "":
             direccion = 'No disponible'
-            
         telefono = resultado.get('telefono', 'No disponible')
         if pd.isna(telefono):
             telefono = 'No disponible'
-        
         st.markdown(f"""
         <div class="hospital-card-sintomas">
             <div style="margin-bottom: 1rem;">
@@ -632,7 +644,7 @@ def buscar_por_sintomas():
         sintomas_disponibles = obtener_sintomas_local()
     
     if not sintomas_disponibles:
-        st.error("❌ No se pudieron cargar los síntomas. Verifique la conexión a la base de datos.")
+        st.error("❌ No se pudieron cargar los síntomas.")
         return
     
     # Crear selectboxes
@@ -737,9 +749,10 @@ def buscar_por_sintomas():
                         folium.Marker(
                             [row['latitud'], row['longitud']],
                             tooltip=row['hospital'],
-                            popup=f"{row['hospital']}<br>{row['ciudad']}<br>{row['calle']} {row['altura']}<br>{row['telefono']}"
+                            popup=folium.Popup(f"{row['ciudad']}<br>{row['calle']} {row['altura']}", max_width=400),
+                            icon=folium.Icon(color="red")
                         ).add_to(m)
-                st_folium(m, width=700, height=500)
+                st_folium(m, width=700, height=400)
             else:
                 st.warning("No se pudo determinar la ubicación del paciente para mostrar el mapa.")
             # 7. Mostrar listado ordenado (como ahora, pero por distancia)
