@@ -683,8 +683,6 @@ def buscar_por_sintomas():
         with st.spinner(f"🔍 Buscando especialidades para **{sintoma_a}** y **{sintoma_b}**..."):
             resultados = buscar_por_sintomas_local(sintoma_a, sintoma_b)
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        
         if resultados:
             # --- NUEVO: Ordenar por cercanía y mostrar mapa ---
             import pandas as pd
@@ -831,6 +829,10 @@ st.markdown(
         font-size: 12px;
         margin: 2px;
         display: inline-block;
+    }
+    iframe, .folium-map, .st-folium {
+        margin-bottom: 0px !important;
+        padding-bottom: 0px !important;
     }
     </style>
     """,

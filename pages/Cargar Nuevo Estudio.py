@@ -6,8 +6,11 @@ import pandas as pd
 from datetime import datetime, date
 import time
 import sys
+import re
+import unicodedata
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Inicio import solo_medico_autenticado
+from supabase import create_client, Client
 
 
 # Cargar variables de entorno
@@ -19,6 +22,14 @@ solo_medico_autenticado()
 # Obtener el DNI del médico autenticado
 medico_autenticado = st.session_state.usuario_autenticado
 DNI_MEDICO_AUTENTICADO = str(medico_autenticado.get('id_medico', ''))
+
+# NUEVO: Configuración de Supabase Storage
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_BUCKET = "estudios"
+
+def get_supabase_client():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def connect_to_supabase():
     """
@@ -276,19 +287,20 @@ def obtener_siguiente_id_estudio():
         st.error(f"Error obteniendo siguiente ID: {e}")
         return None
 
-def guardar_estudio(id_paciente, id_medico, desc_estudio, fecha_estudio, resultado):
+def guardar_estudio(id_paciente, id_medico, desc_estudio, fecha_estudio, resultado, archivo_url=None):
     """Guarda el estudio médico en la base de datos"""
     try:
         # Obtener el siguiente ID
         siguiente_id = obtener_siguiente_id_estudio()
         if siguiente_id is None:
             return False
-            
+        
+        # NUEVO: Incluir archivo_url en el insert
         query = """
-        INSERT INTO estudio_medico (id_estudio, id_paciente, id_medico, desc_estudio, fecha_estudio, resultado)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO estudio_medico (id_estudio, id_paciente, id_medico, desc_estudio, fecha_estudio, resultado, archivo_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
-        return execute_query(query, params=(siguiente_id, id_paciente, id_medico, desc_estudio, fecha_estudio, resultado), is_select=False)
+        return execute_query(query, params=(siguiente_id, id_paciente, id_medico, desc_estudio, fecha_estudio, resultado, archivo_url), is_select=False)
     except Exception as e:
         st.error(f"Error guardando estudio: {e}")
         return False
@@ -313,6 +325,16 @@ st.markdown("""
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+# NUEVO: Función para limpiar el nombre del archivo
+def limpiar_nombre_archivo(nombre):
+    # Quitar tildes y caracteres especiales
+    nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('ascii')
+    # Reemplazar espacios por guion bajo
+    nombre = nombre.replace(' ', '_')
+    # Eliminar cualquier caracter que no sea letra, número, guion bajo, punto o guion
+    nombre = re.sub(r'[^A-Za-z0-9._-]', '', nombre)
+    return nombre
 
 if st.session_state.step == 'form':
     st.markdown('<div class="form-container">', unsafe_allow_html=True)
@@ -362,6 +384,13 @@ if st.session_state.step == 'form':
             help="Resultados detallados, valores, observaciones y conclusiones"
         )
         
+        # NUEVO: Campo para subir archivo
+        archivo = st.file_uploader(
+            "Adjuntar archivo o imagen del estudio (opcional)",
+            type=["png", "jpg", "jpeg", "pdf"],
+            help="Puedes adjuntar una imagen o PDF del estudio"
+        )
+        
         st.markdown("---")
         submitted = st.form_submit_button("🔍 Verificar y Continuar", use_container_width=True)
         
@@ -387,6 +416,21 @@ if st.session_state.step == 'form':
                             st.error(f"❌ No se encontró un médico con el DNI: {DNI_MEDICO_AUTENTICADO}")
                             st.info("💡 Verifique que su usuario esté correctamente registrado como médico en el sistema")
                         else:
+                            # NUEVO: Subir archivo si existe
+                            archivo_url = None
+                            if archivo is not None:
+                                supabase = get_supabase_client()
+                                # Agregar timestamp para evitar duplicados
+                                timestamp = int(time.time())
+                                nombre_archivo = f"{dni_paciente.strip()}_{fecha_estudio}_{timestamp}_{archivo.name}"
+                                nombre_archivo = limpiar_nombre_archivo(nombre_archivo)
+                                data = archivo.read()
+                                try:
+                                    res = supabase.storage.from_(SUPABASE_BUCKET).upload(nombre_archivo, data, {"content-type": archivo.type})
+                                    archivo_url = supabase.storage.from_(SUPABASE_BUCKET).get_public_url(nombre_archivo)
+                                except Exception as e:
+                                    st.error(f"Error subiendo el archivo a Supabase Storage: {e}")
+                                    archivo_url = None
                             # Guardar datos y continuar
                             st.session_state.paciente_data = paciente
                             st.session_state.medico_data = medico
@@ -395,7 +439,8 @@ if st.session_state.step == 'form':
                                 'dni_medico': DNI_MEDICO_AUTENTICADO,
                                 'desc_estudio': desc_estudio.strip(),
                                 'fecha_estudio': fecha_estudio,
-                                'resultado': resultado.strip()
+                                'resultado': resultado.strip(),
+                                'archivo_url': archivo_url
                             }
                             st.session_state.step = 'confirmation'
                             st.success("✅ Datos verificados correctamente")
@@ -539,7 +584,8 @@ elif st.session_state.step == 'confirmation':
                     st.session_state.medico_data['id_medico'],
                     st.session_state.form_data['desc_estudio'],
                     st.session_state.form_data['fecha_estudio'],
-                    st.session_state.form_data['resultado']
+                    st.session_state.form_data['resultado'],
+                    archivo_url=st.session_state.form_data.get('archivo_url')
                 ):
                     st.session_state.step = 'success'
                     st.success("✅ Guardando...")

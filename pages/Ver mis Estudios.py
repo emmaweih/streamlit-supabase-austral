@@ -4,6 +4,13 @@ import os
 # Agregar el directorio padre al path para importar funciones
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Configuración de la página (debe ser la primera llamada de Streamlit)
+st.set_page_config(
+    page_title="Ver mis Estudios",
+    page_icon="📋",
+    layout="wide"
+)
+
 # Importar funciones de autenticación desde Inicio.py
 from Inicio import solo_paciente_autenticado, verificar_autenticacion, get_db_connection
 
@@ -52,6 +59,7 @@ def obtener_estudios_paciente(id_paciente):
         e.desc_estudio,
         e.fecha_estudio,
         e.resultado,
+        e.archivo_url,
         m.nombre || ' ' || m.apellido as nombre_medico,
         h.desc_hospital as hospital,
         p.nombre || ' ' || p.apellido as nombre_paciente
@@ -119,7 +127,13 @@ def generar_html_estudio_individual(estudio, nombre_paciente, dni_paciente):
     Genera HTML para un estudio individual
     """
     fecha_formatted = estudio['fecha_estudio'].strftime("%d/%m/%Y") if pd.notna(estudio['fecha_estudio']) else "Fecha no disponible"
-    
+    archivo_html = ""
+    if 'archivo_url' in estudio and estudio['archivo_url']:
+        url = estudio['archivo_url']
+        if url.lower().endswith(('.png', '.jpg', '.jpeg')):
+            archivo_html = f'<div style="margin:20px 0;"><img src="{url}" alt="Imagen del estudio" style="max-width:100%;height:auto;border-radius:8px;"/></div>'
+        else:
+            archivo_html = f'<div style="margin:20px 0;"><a href="{url}" target="_blank">Descargar archivo adjunto</a></div>'
     html = f"""
     <!DOCTYPE html>
     <html lang="es">
@@ -191,45 +205,39 @@ def generar_html_estudio_individual(estudio, nombre_paciente, dni_paciente):
         </style>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1>📋 Estudio Médico</h1>
-                <p>Reporte Individual</p>
-            </div>
-            
-            <div class="patient-info">
-                <div class="label">👤 Paciente:</div>
-                <div class="value">{nombre_paciente}</div>
-                <div class="label">🆔 DNI:</div>
-                <div class="value">{dni_paciente}</div>
-            </div>
-            
-            <div class="study-details">
-                <div class="label">📋 Tipo de Estudio:</div>
-                <div class="value">{estudio['desc_estudio']}</div>
-                
-                <div class="label">📅 Fecha del Estudio:</div>
-                <div class="value">{fecha_formatted}</div>
-                
-                <div class="label">👨‍⚕️ Médico Responsable:</div>
-                <div class="value">{estudio['nombre_medico']}</div>
-                
-                <div class="label">🏥 Hospital:</div>
-                <div class="value">{estudio['hospital']}</div>
-            </div>
-            
-            <div class="result-section">
-                <div class="label">📋 Resultados:</div>
-                <div class="value">
-                    {estudio['resultado'] if pd.notna(estudio['resultado']) and estudio['resultado'] else 'No disponibles'}
-                </div>
-            </div>
-            
-            <div class="footer">
-                <p>Documento generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')}</p>
-                <p>Sistema de Gestión de Estudios Médicos</p>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Estudio Médico</h1>
+            <p>Reporte Individual</p>
+        </div>
+        <div class="patient-info">
+            <div class="label">👤 Paciente:</div>
+            <div class="value">{nombre_paciente}</div>
+            <div class="label">🆔 DNI:</div>
+            <div class="value">{dni_paciente}</div>
+        </div>
+        <div class="study-details">
+            <div class="label">📋 Tipo de Estudio:</div>
+            <div class="value">{estudio['desc_estudio']}</div>
+            <div class="label">📅 Fecha del Estudio:</div>
+            <div class="value">{fecha_formatted}</div>
+            <div class="label">👨‍⚕️ Médico Responsable:</div>
+            <div class="value">{estudio['nombre_medico']}</div>
+            <div class="label">🏥 Hospital:</div>
+            <div class="value">{estudio['hospital']}</div>
+        </div>
+        <div class="result-section">
+            <div class="label">📋 Resultados:</div>
+            <div class="value">
+                {estudio['resultado'] if pd.notna(estudio['resultado']) and estudio['resultado'] else 'No disponibles'}
             </div>
         </div>
+        {archivo_html}
+        <div class="footer">
+            <p>Documento generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')}</p>
+            <p>Sistema de Gestión de Estudios Médicos</p>
+        </div>
+    </div>
     </body>
     </html>
     """
@@ -346,28 +354,30 @@ def generar_html_todos_estudios(estudios_df, nombre_paciente, dni_paciente):
                 <h1>📋 Historial Completo de Estudios Médicos</h1>
                 <p>Reporte Completo</p>
             </div>
-            
             <div class="patient-info">
                 <h3>👤 {nombre_paciente}</h3>
                 <p>🆔 DNI: {dni_paciente}</p>
             </div>
-            
             <div class="summary">
                 <h3>📊 Resumen</h3>
                 <p>Total de estudios: {len(estudios_df)}</p>
                 <p>Período: {estudios_df['fecha_estudio'].min().strftime('%d/%m/%Y') if not estudios_df.empty else 'N/A'} - {estudios_df['fecha_estudio'].max().strftime('%d/%m/%Y') if not estudios_df.empty else 'N/A'}</p>
             </div>
     """
-    
     # Agregar cada estudio
     for index, estudio in estudios_df.iterrows():
         fecha_formatted = estudio['fecha_estudio'].strftime("%d/%m/%Y") if pd.notna(estudio['fecha_estudio']) else "Fecha no disponible"
-        
+        archivo_html = ""
+        if 'archivo_url' in estudio and estudio['archivo_url']:
+            url = estudio['archivo_url']
+            if url.lower().endswith(('.png', '.jpg', '.jpeg')):
+                archivo_html = f'<div style="margin:20px 0;"><img src="{url}" alt="Imagen del estudio" style="max-width:100%;height:auto;border-radius:8px;"/></div>'
+            else:
+                archivo_html = f'<div style="margin:20px 0;"><a href="{url}" target="_blank">Descargar archivo adjunto</a></div>'
         html += f"""
             <div class="study-card">
                 <div class="study-title">📋 {estudio['desc_estudio']}</div>
                 <div class="study-date">📅 {fecha_formatted}</div>
-                
                 <div class="study-details">
                     <div class="detail-item">
                         <div class="label">👨‍⚕️ Médico:</div>
@@ -378,16 +388,15 @@ def generar_html_todos_estudios(estudios_df, nombre_paciente, dni_paciente):
                         <div class="value">{estudio['hospital']}</div>
                     </div>
                 </div>
-                
                 <div class="result-section">
                     <div class="label">📋 Resultados:</div>
                     <div class="value">
                         {estudio['resultado'] if pd.notna(estudio['resultado']) and estudio['resultado'] else 'No disponibles'}
                     </div>
                 </div>
+                {archivo_html}
             </div>
         """
-    
     html += f"""
             <div class="footer">
                 <p>Documento generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')}</p>
@@ -400,13 +409,6 @@ def generar_html_todos_estudios(estudios_df, nombre_paciente, dni_paciente):
     return html
 
 def main():
-    # Configuración de la página
-    st.set_page_config(
-        page_title="Ver mis Estudios",
-        page_icon="📋",
-        layout="wide"
-    )
-    
     # Verificar autenticación usando el nuevo sistema
     if not verificar_autenticacion():
         st.error("🔐 Debes iniciar sesión para acceder a esta página")
@@ -600,6 +602,14 @@ def main():
             else:
                 st.warning("📋 **Resultados:** No disponibles")
             
+            # NUEVO: Mostrar archivo adjunto si existe
+            if 'archivo_url' in estudio and estudio['archivo_url']:
+                url = estudio['archivo_url']
+                if url.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    st.image(url, caption="Imagen adjunta del estudio", use_column_width=True)
+                else:
+                    st.markdown(f"[Descargar archivo adjunto]({url})")
+            
             # Botones de descarga individual
             # Generar HTML para este estudio individual
             html_individual = generar_html_estudio_individual(estudio, nombre_paciente, dni_paciente)
@@ -641,14 +651,7 @@ def main():
         with col3:
             hospitales_unicos = estudios_filtrados['hospital'].nunique()
             st.metric("Hospitales visitados", hospitales_unicos)
-        
-        # Mostrar estudios por mes (si hay datos suficientes)
-        if total_estudios > 3:
-            st.subheader("📅 Estudios por mes")
-            estudios_por_mes = estudios_filtrados.copy()
-            estudios_por_mes['mes_año'] = estudios_por_mes['fecha_estudio'].dt.strftime('%Y-%m')
-            estudios_por_mes_count = estudios_por_mes.groupby('mes_año').size().reset_index(name='cantidad')
-            st.bar_chart(estudios_por_mes_count.set_index('mes_año')['cantidad'])
+    
 
     # Separador adicional antes del botón de volver
     st.markdown("---")
