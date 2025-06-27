@@ -336,6 +336,20 @@ def limpiar_nombre_archivo(nombre):
     nombre = re.sub(r'[^A-Za-z0-9._-]', '', nombre)
     return nombre
 
+# --- NUEVO: Crear paciente placeholder ---
+def crear_paciente_placeholder(dni_paciente):
+    """Crea un paciente con solo el DNI, el resto de los campos con valores dummy válidos para cumplir constraints."""
+    try:
+        email_placeholder = f"placeholder_{dni_paciente}@placeholder.com"
+        query = """
+        INSERT INTO paciente (id_paciente, apellido, nombre, fecha_de_nacimiento, sexo, provincia, ciudad, calle, altura, obra_social, email, contraseña)
+        VALUES (%s, '', '', '1900-01-01', 'O', 'Sin datos', 'Sin datos', 'Sin datos', '0', 'Sin datos', %s, 'placeholder')
+        """
+        return execute_query(query, params=(dni_paciente, email_placeholder), is_select=False)
+    except Exception as e:
+        st.error(f"Error creando paciente placeholder: {e}")
+        return False
+
 if st.session_state.step == 'form':
     st.markdown('<div class="form-container">', unsafe_allow_html=True)
     
@@ -393,8 +407,9 @@ if st.session_state.step == 'form':
         
         st.markdown("---")
         submitted = st.form_submit_button("🔍 Verificar y Continuar", use_container_width=True)
+        crear_placeholder = st.form_submit_button("➕ Crear paciente placeholder y continuar", use_container_width=True)
         
-        if submitted:
+        if submitted or crear_placeholder:
             # Validaciones
             if not all([dni_paciente, desc_estudio, resultado]):
                 st.error("❌ Por favor complete todos los campos obligatorios (*)")
@@ -404,11 +419,52 @@ if st.session_state.step == 'form':
                 st.error("❌ El DNI del paciente debe tener 7 u 8 dígitos")
             else:
                 with st.spinner("🔍 Verificando datos..."):
-                    # Buscar paciente
                     paciente = buscar_paciente_por_dni(dni_paciente.strip())
                     if not paciente:
-                        st.error(f"❌ No se encontró un paciente con el DNI: {dni_paciente}")
-                        st.info("💡 Verifique que el DNI sea correcto y que el paciente esté registrado en el sistema")
+                        if crear_placeholder:
+                            creado = crear_paciente_placeholder(dni_paciente.strip())
+                            if creado:
+                                st.success("Paciente placeholder creado. Continúe con la carga del estudio.")
+                                paciente = buscar_paciente_por_dni(dni_paciente.strip())
+                                # Buscar médico (ya autenticado)
+                                medico = buscar_medico_por_dni(DNI_MEDICO_AUTENTICADO)
+                                if not medico:
+                                    st.error(f"❌ No se encontró un médico con el DNI: {DNI_MEDICO_AUTENTICADO}")
+                                    st.info("💡 Verifique que su usuario esté correctamente registrado como médico en el sistema")
+                                else:
+                                    # NUEVO: Subir archivo si existe
+                                    archivo_url = None
+                                    if archivo is not None:
+                                        supabase = get_supabase_client()
+                                        timestamp = int(time.time())
+                                        nombre_archivo = f"{dni_paciente.strip()}_{fecha_estudio}_{timestamp}_{archivo.name}"
+                                        nombre_archivo = limpiar_nombre_archivo(nombre_archivo)
+                                        data = archivo.read()
+                                        try:
+                                            res = supabase.storage.from_(SUPABASE_BUCKET).upload(nombre_archivo, data, {"content-type": archivo.type})
+                                            archivo_url = supabase.storage.from_(SUPABASE_BUCKET).get_public_url(nombre_archivo)
+                                        except Exception as e:
+                                            st.error(f"Error subiendo el archivo a Supabase Storage: {e}")
+                                            archivo_url = None
+                                    st.session_state.paciente_data = paciente
+                                    st.session_state.medico_data = medico
+                                    st.session_state.form_data = {
+                                        'dni_paciente': dni_paciente.strip(),
+                                        'dni_medico': DNI_MEDICO_AUTENTICADO,
+                                        'desc_estudio': desc_estudio.strip(),
+                                        'fecha_estudio': fecha_estudio,
+                                        'resultado': resultado.strip(),
+                                        'archivo_url': archivo_url
+                                    }
+                                    st.session_state.step = 'confirmation'
+                                    st.success("✅ Datos verificados correctamente")
+                                    time.sleep(1)
+                                    st.rerun()
+                            else:
+                                st.error("No se pudo crear el paciente placeholder. Intente nuevamente.")
+                        elif submitted:
+                            st.warning(f"No se encontró un paciente con el DNI: {dni_paciente}")
+                            st.info("💡 Si el paciente aún no está registrado, puede crearlo como placeholder para asociar el estudio a su DNI usando el botón de abajo.")
                     else:
                         # Buscar médico (ya autenticado)
                         medico = buscar_medico_por_dni(DNI_MEDICO_AUTENTICADO)
@@ -420,7 +476,6 @@ if st.session_state.step == 'form':
                             archivo_url = None
                             if archivo is not None:
                                 supabase = get_supabase_client()
-                                # Agregar timestamp para evitar duplicados
                                 timestamp = int(time.time())
                                 nombre_archivo = f"{dni_paciente.strip()}_{fecha_estudio}_{timestamp}_{archivo.name}"
                                 nombre_archivo = limpiar_nombre_archivo(nombre_archivo)
@@ -431,7 +486,6 @@ if st.session_state.step == 'form':
                                 except Exception as e:
                                     st.error(f"Error subiendo el archivo a Supabase Storage: {e}")
                                     archivo_url = None
-                            # Guardar datos y continuar
                             st.session_state.paciente_data = paciente
                             st.session_state.medico_data = medico
                             st.session_state.form_data = {
@@ -534,7 +588,7 @@ elif st.session_state.step == 'confirmation':
     
     st.markdown("""
     <div class="confirmation-box">
-        <h4>¿Puede confirmar si este es el nombre del paciente para el que desea cargar este estudio?</h4>
+        <h4>¿Puede confirmar si este es el DNI del paciente para el que desea cargar este estudio?</h4>
     </div>
     """, unsafe_allow_html=True)
     

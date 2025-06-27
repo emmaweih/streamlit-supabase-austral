@@ -1,6 +1,7 @@
 import streamlit as st  
 import functions as f
 from datetime import date
+import pandas as pd
 
 # Utilidad para mostrar dirección sin repetir provincia y ciudad
 
@@ -19,54 +20,82 @@ OBRAS_SOCIALES = ["Seleccionar...", "OSDE", "PAMI", "Swiss Medical", "Galeno", "
 def registrar_usuario(dni, apellido, nombre, fecha_de_nacimiento, sexo, provincia, ciudad, calle, altura, obra_social, correo, contraseña):
     """
     Registra un nuevo usuario/paciente en la tabla paciente.
-    
-    Args:
-        dni (str): DNI del paciente (usado como id_paciente)
-        apellido (str): Apellido del paciente
-        nombre (str): Nombre del paciente
-        fecha_de_nacimiento (str/date): Fecha de nacimiento
-        sexo (str): Sexo del paciente
-        provincia (str): Provincia del paciente
-        ciudad (str): Cuidad del paciente
-        calle (str): Calle del paciente
-        altura (str): Altura de la calle del paciente
-        obra_social (str): Obra social del paciente
-        correo (str): Email del paciente
-        contraseña (str): Contraseña del paciente
-        
-    Returns:
-        dict: {'success': True/False, 'error': mensaje} según el resultado
+    Si el DNI ya existe pero los datos son los de un placeholder, actualiza ese registro.
     """
     try:
-        # Validar si ya existe un paciente con ese DNI
-        query_check = "SELECT 1 FROM paciente WHERE id_paciente = %s"
+        # Valores estándar de placeholder
+        placeholder_values = {
+            'apellido': '',
+            'nombre': '',
+            'fecha_de_nacimiento': '1900-01-01',
+            'sexo': 'O',
+            'provincia': 'Sin datos',
+            'ciudad': 'Sin datos',
+            'calle': 'Sin datos',
+            'altura': '0',
+            'obra_social': 'Sin datos',
+            'contraseña': 'placeholder'
+        }
+        # Verificar si ya existe un paciente con ese DNI
+        query_check = "SELECT * FROM paciente WHERE id_paciente = %s"
         existe = f.execute_query(query_check, params=(dni,), is_select=True)
         if not existe.empty:
-            return {'success': False, 'error': 'Ya existe una cuenta con este DNI, revise sus datos'}
-        
+            row = existe.iloc[0]
+            # Comprobar si todos los campos coinciden con el placeholder
+            es_placeholder = (
+                str(row['apellido']) == placeholder_values['apellido'] and
+                str(row['nombre']) == placeholder_values['nombre'] and
+                str(row['fecha_de_nacimiento']) == placeholder_values['fecha_de_nacimiento'] and
+                str(row['sexo']) == placeholder_values['sexo'] and
+                str(row['provincia']) == placeholder_values['provincia'] and
+                str(row['ciudad']) == placeholder_values['ciudad'] and
+                str(row['calle']) == placeholder_values['calle'] and
+                str(row['altura']) == placeholder_values['altura'] and
+                str(row['obra_social']) == placeholder_values['obra_social'] and
+                str(row['contraseña']) == placeholder_values['contraseña']
+            )
+            # El email del placeholder es placeholder_{dni}@placeholder.com
+            email_placeholder = f"placeholder_{dni}@placeholder.com"
+            es_placeholder = es_placeholder and (str(row['email']) == email_placeholder)
+            if es_placeholder:
+                # Actualizar el registro placeholder con los datos reales
+                query_update = """
+                    UPDATE paciente SET apellido=%s, nombre=%s, fecha_de_nacimiento=%s, sexo=%s, provincia=%s, ciudad=%s, calle=%s, altura=%s, obra_social=%s, email=%s, contraseña=%s
+                    WHERE id_paciente=%s
+                """
+                params_update = (
+                    apellido, nombre, fecha_de_nacimiento, sexo, provincia, ciudad, calle, altura, obra_social, correo, contraseña, dni
+                )
+                resultado = f.execute_query(query_update, params=params_update, is_select=False)
+                if resultado:
+                    print(f"Usuario {nombre} {apellido} actualizado exitosamente desde placeholder.")
+                    return {'success': True}
+                else:
+                    print(f"Error al actualizar el usuario {nombre} {apellido}.")
+                    return {'success': False, 'error': 'Error al actualizar el usuario'}
+            else:
+                return {'success': False, 'error': 'Ya existe una cuenta con este DNI, revise sus datos'}
+        # Si no existe, insertar normalmente
         query = """
             INSERT INTO paciente (
                 id_paciente, apellido, nombre, fecha_de_nacimiento,
                 sexo, provincia, ciudad, calle, altura, obra_social,
                 email, contraseña
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         params = (
             dni, apellido, nombre, fecha_de_nacimiento,
             sexo, provincia, ciudad, calle, altura, obra_social,
             correo, contraseña
         )
-        
         resultado = f.execute_query(query, params=params, is_select=False)
-        
         if resultado:
             print(f"Usuario {nombre} {apellido} registrado exitosamente.")
             return {'success': True}
         else:
             print(f"Error al registrar el usuario {nombre} {apellido}.")
             return {'success': False, 'error': 'Error al registrar el usuario'}
-            
     except Exception as e:
         print(f"Error en registrar_usuario: {e}")
         return {'success': False, 'error': str(e)}
@@ -1154,7 +1183,7 @@ elif st.session_state.pantalla == "registro":
         calle = st.text_input("🚏 Calle")
         altura = st.text_input("🔢 Altura")
         obra_social = st.selectbox("🏥 Obra social", OBRAS_SOCIALES, index=0)
-        correo = st.text_input("�� Correo electrónico")
+        correo = st.text_input("📧 Correo electrónico")
         contraseña = st.text_input("🔑 Contraseña", type="password")
     
     # Botón de registro
