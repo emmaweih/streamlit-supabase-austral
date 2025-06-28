@@ -12,6 +12,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Inicio import solo_medico_autenticado
 from supabase import create_client, Client
 
+# Configuración de la página
+st.set_page_config(
+    page_title="InfoMed - Cargar Estudios",
+    page_icon="🏥",
+    layout="wide"
+)
 
 # Cargar variables de entorno
 load_dotenv()
@@ -114,12 +120,7 @@ def execute_query(query, conn=None, params=None, is_select=True):
             conn.rollback()
         return pd.DataFrame() if is_select else False
 
-# Configuración de la página
-st.set_page_config(
-    page_title="InfoMed - Cargar Estudios",
-    page_icon="🏥",
-    layout="wide"
-)
+
 
 # CSS personalizado para el estilo InfoMed
 st.markdown("""

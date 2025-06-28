@@ -9,6 +9,14 @@ from streamlit_folium import st_folium
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from functions import execute_query
 
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="InfoMed - Buscar Atención Médica",
+    page_icon="🔍",
+    layout="wide"
+)
+
 def solo_paciente_autenticado():
     """
     Permite el acceso solo si el usuario está autenticado y es paciente.
@@ -31,12 +39,7 @@ def solo_paciente_autenticado():
 # --- RESTRICCIÓN DE ACCESO ---
 solo_paciente_autenticado()
 
-# --- Page Configuration ---
-st.set_page_config(
-    page_title="InfoMed - Buscar Atención Médica",
-    page_icon="🔍",
-    layout="wide"
-)
+
 
 def get_or_update_latlon_paciente(paciente_row, conn):
     if paciente_row.get('latitud') and paciente_row.get('longitud'):
