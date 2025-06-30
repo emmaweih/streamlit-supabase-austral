@@ -46,6 +46,14 @@ if medico_autenticado is None:
     if st.button("🏠 Ir a la página principal"):
         st.switch_page("Inicio.py")
     st.stop()
+
+# Verificar que el usuario sea un médico
+if st.session_state.get("tipo_usuario") != "medico":
+    st.error("❌ Solo los médicos pueden acceder a esta página.")
+    if st.button("🔙 Volver al perfil"):
+        st.switch_page("Inicio.py")
+    st.stop()
+
 DNI_MEDICO_AUTENTICADO = str(medico_autenticado.get('id_medico', ''))
 
 # NUEVO: Configuración de Supabase Storage
