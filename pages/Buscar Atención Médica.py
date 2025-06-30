@@ -342,7 +342,7 @@ def buscar_por_especialidad():
                         st.warning("No se pudo determinar la ubicación del paciente para mostrar el mapa.")
                     # 7. Mostrar listado ordenado (pero por distancia)
                     st.markdown(f"""
-                    <div class="results-counter">
+                    <div class="results-counter" style="margin-top: 1rem; margin-bottom: 0.5rem;">
                         <h4 style="margin: 0; color: #2E7D32;">
                             ✅ Se encontraron <strong>{len(hospitales)} hospitales</strong> 
                             que ofrecen <strong>{especialidad_seleccionada}</strong>
@@ -759,10 +759,10 @@ def buscar_por_sintomas():
             # 7. Mostrar listado ordenado (como ahora, pero por distancia)
             especialidades_unicas = list(set([r['especialidad'] for r in resultados]))
             st.markdown(f"""
-            <div class="results-counter">
+            <div class="results-counter" style="margin-top: 1rem; margin-bottom: 0.5rem;">
                 <h4 style="margin: 0; color: #2E7D32;">
-                    ✅ Se encontraron <strong>{len(df_resultados)} opciones</strong> 
-                    en <strong>{len(especialidades_unicas)} especialidades</strong>
+                    ✅ Se encontraron <strong>{len(hospitales)} hospitales</strong> 
+                    que ofrecen <strong>{especialidad_seleccionada}</strong>
                 </h4>
             </div>
             """, unsafe_allow_html=True)
@@ -924,23 +924,12 @@ else:
     if st.session_state.tipo_busqueda == "especialidad":
         
         with st.container():
-            st.markdown(
-                """
-                <div class='search-container'>
-                """,
-                unsafe_allow_html=True
-            )
+            
             buscar_por_especialidad()
             st.markdown("</div>", unsafe_allow_html=True)
     
     elif st.session_state.tipo_busqueda == "sintomas":
         with st.container():
-            st.markdown(
-                """
-                <div class='search-container'>
-                """,
-                unsafe_allow_html=True
-            )
             buscar_por_sintomas()
             st.markdown("</div>", unsafe_allow_html=True)
 
