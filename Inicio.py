@@ -5,6 +5,13 @@ import pandas as pd
 
 # Utilidad para mostrar dirección sin repetir provincia y ciudad
 
+# --- Page Configuration (Optional but Recommended) ---
+st.set_page_config(
+    page_title="InfoMed - Login",
+    page_icon="🏥",
+    layout="centered" # "wide" or "centered"
+)
+
 def formatear_direccion(provincia, ciudad, calle, altura):
     if provincia and ciudad and provincia.strip().lower() == ciudad.strip().lower():
         return f"{provincia}, {calle}, {altura}"
@@ -907,12 +914,7 @@ def obtener_hospital_por_id(id_hospital):
 
 
 
-# --- Page Configuration (Optional but Recommended) ---
-st.set_page_config(
-    page_title="InfoMed - Login",
-    page_icon="🏥",
-    layout="centered" # "wide" or "centered"
-)
+
 
 # --- Main Application ---
 st.markdown(
