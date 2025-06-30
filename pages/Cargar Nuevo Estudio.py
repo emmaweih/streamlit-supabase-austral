@@ -9,7 +9,6 @@ import sys
 import re
 import unicodedata
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Inicio import solo_medico_autenticado
 from supabase import create_client, Client
 
 # Configuración de la página
@@ -22,11 +21,31 @@ st.set_page_config(
 # Cargar variables de entorno
 load_dotenv()
 
-# Control de acceso: solo médicos autenticados
-solo_medico_autenticado()
+#solo médicos autenticados desde inicio
+def solo_medico_autenticado():
+    """
+    Permite el acceso solo si el usuario está autenticado y es médico.
+    Si no, muestra un mensaje y detiene la ejecución de la página.
+    """
+    if "usuario_autenticado" not in st.session_state or st.session_state.get("usuario_autenticado") is None:
+        st.error("🔐 Debes iniciar sesión como médico para acceder a esta página")
+        if st.button("🏠 Ir a la página principal"):
+            st.switch_page("Inicio.py")
+        st.stop()
+    if st.session_state.get("tipo_usuario") != "medico":
+        st.error("❌ Solo los médicos pueden acceder a esta página.")
+        if st.button("🔙 Volver al perfil"):
+            st.switch_page("Inicio.py")
+        st.stop()
+
 
 # Obtener el DNI del médico autenticado
-medico_autenticado = st.session_state.usuario_autenticado
+medico_autenticado = st.session_state.get("usuario_autenticado")
+if medico_autenticado is None:
+    st.error("🔐 Debes iniciar sesión como médico para acceder a esta página")
+    if st.button("🏠 Ir a la página principal"):
+        st.switch_page("Inicio.py")
+    st.stop()
 DNI_MEDICO_AUTENTICADO = str(medico_autenticado.get('id_medico', ''))
 
 # NUEVO: Configuración de Supabase Storage

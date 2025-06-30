@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 import os
+import psycopg2
 # Agregar el directorio padre al path para importar funciones
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -11,11 +12,50 @@ st.set_page_config(
     layout="wide"
 )
 
-# Importar funciones de autenticación desde Inicio.py
-from Inicio import solo_paciente_autenticado, verificar_autenticacion, get_db_connection
+
+DB_CONFIG = {
+    'host': 'aws-0-us-east-1.pooler.supabase.com',
+    'port': 6543,
+    'database': 'postgres',
+    'user': 'postgres.ihguxvmtprnyhyhstvdp',
+    'password': 'Csdatos2025!'
+}
+
+def get_db_connection():
+    """Obtiene una conexión a PostgreSQL"""
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        return conn
+    except Exception as e:
+        print(f"Error conectando a la base de datos: {e}")
+        return None
+
+def verificar_autenticacion():
+    """
+    Verifica si el usuario está autenticado
+    Retorna True si está autenticado, False en caso contrario
+    """
+    return "usuario_autenticado" in st.session_state and st.session_state.usuario_autenticado is not None
 
 # Control de acceso: solo pacientes autenticados
-solo_paciente_autenticado()
+def solo_paciente_autenticado():
+    """
+    Permite el acceso solo si el usuario está autenticado y es paciente.
+    Si no, muestra un mensaje y detiene la ejecución de la página.
+    """
+    # Verificar autenticación
+    if "usuario_autenticado" not in st.session_state or st.session_state.usuario_autenticado is None:
+        st.error("🔐 Debes iniciar sesión como paciente para acceder a esta página")
+        if st.button("🏠 Ir a la página principal"):
+            st.switch_page("Inicio.py")
+        st.stop()
+    
+    # Verificar tipo de usuario
+    if "tipo_usuario" not in st.session_state or st.session_state.tipo_usuario != "paciente":
+        st.error("❌ Solo los pacientes pueden acceder a esta página.")
+        if st.button("🔙 Volver al perfil"):
+            st.switch_page("Inicio.py")
+        st.stop()
 
 import pandas as pd
 from datetime import datetime
@@ -424,8 +464,14 @@ def main():
             st.switch_page("Inicio.py")
         st.stop()
     
-    # Obtener información del paciente desde el session state
-    usuario = st.session_state.usuario_autenticado
+    # Obtener información del paciente desde el session state de forma segura
+    usuario = st.session_state.get("usuario_autenticado")
+    if usuario is None:
+        st.error("🔐 Debes iniciar sesión para acceder a esta página")
+        st.info("Por favor, regresa a la página principal e inicia sesión.")
+        if st.button("🏠 Ir a la página principal"):
+            st.switch_page("Inicio.py")
+        st.stop()
     
     # Obtener el ID del paciente correctamente
     id_paciente = usuario.get('id_paciente') or usuario.get('dni') or usuario.get('id')
