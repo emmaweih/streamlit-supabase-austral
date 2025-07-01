@@ -7,7 +7,7 @@ from geo_utils import geocode_address, haversine
 import folium
 from streamlit_folium import st_folium
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from functions import execute_query
+from functions import execute_query, connect_to_supabase
 
 
 # --- Page Configuration ---
@@ -294,14 +294,7 @@ def buscar_por_especialidad():
             with st.spinner(f"🔍 Buscando hospitales para **{especialidad_seleccionada}**..."):
                 hospitales = obtener_hospitales_por_especialidad(id_especialidad)
                 if not hospitales.empty:
-                    # 1. Conexión a la base (ajustar según tu config, aquí ejemplo con psycopg2)
-                    conn = psycopg2.connect(
-                        host='aws-0-us-east-1.pooler.supabase.com',
-                        port=6543,
-                        database='postgres',
-                        user='postgres.ihguxvmtprnyhyhstvdp',
-                        password='Csdatos2025!'
-                    )
+                    conn = connect_to_supabase()
                     # 2. Obtener paciente completo desde la base
                     paciente_id = st.session_state.usuario_autenticado['id_paciente']
                     paciente = get_paciente_completo(paciente_id, conn)
@@ -687,20 +680,12 @@ def buscar_por_sintomas():
             resultados = buscar_por_sintomas_local(sintoma_a, sintoma_b)
         
         if resultados:
-            # --- NUEVO: Ordenar por cercanía y mostrar mapa ---
             import pandas as pd
-            import psycopg2
             import folium
             from streamlit_folium import st_folium
             from geo_utils import haversine
-            # 1. Conexión a la base
-            conn = psycopg2.connect(
-                host='aws-0-us-east-1.pooler.supabase.com',
-                port=6543,
-                database='postgres',
-                user='postgres.ihguxvmtprnyhyhstvdp',
-                password='Csdatos2025!'
-            )
+            from functions import connect_to_supabase
+            conn = connect_to_supabase()
             # 2. Obtener paciente completo desde la base
             paciente_id = st.session_state.usuario_autenticado['id_paciente']
             paciente = get_paciente_completo(paciente_id, conn)
@@ -742,13 +727,6 @@ def buscar_por_sintomas():
             # 5. Ordenar por distancia
             df_resultados = df_resultados.sort_values('distancia_km')
             # 6. Mostrar mapa con los 5 más cercanos
-# Busca esta sección en tu código (alrededor de las líneas donde muestras el mapa)
-# Reemplaza desde donde está st_folium hasta el contador de resultados
-
-# 6. Mostrar mapa con los 5 más cercanos
-            # Si la primera solución no funciona, usa esta alternativa más agresiva
-
-# Después de mostrar el mapa, reemplaza esta parte:
             if lat_pac and lon_pac:
                 m = folium.Map(location=[lat_pac, lon_pac], zoom_start=13)
                 folium.Marker([lat_pac, lon_pac], tooltip="Tu casa",
