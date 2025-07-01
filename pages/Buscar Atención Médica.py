@@ -41,41 +41,35 @@ solo_paciente_autenticado()
 
 
 
-def get_or_update_latlon_paciente(paciente_row, conn):
+def get_or_update_latlon_paciente(paciente_row):
     if paciente_row.get('latitud') and paciente_row.get('longitud'):
         return paciente_row['latitud'], paciente_row['longitud']
     address = f"{paciente_row['calle']} {paciente_row['altura']}, {paciente_row['ciudad']}, {paciente_row['provincia']}, Argentina"
     lat, lon = geocode_address(address)
     if lat and lon:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE paciente SET latitud=%s, longitud=%s WHERE id_paciente=%s", (lat, lon, paciente_row['id_paciente']))
-            conn.commit()
+        query = "UPDATE paciente SET latitud=%s, longitud=%s WHERE id_paciente=%s"
+        execute_query(query, params=(lat, lon, paciente_row['id_paciente']), is_select=False)
         return lat, lon
     return None, None
 
-def get_or_update_latlon_hospital(hospital_row, conn):
+def get_or_update_latlon_hospital(hospital_row):
     if hospital_row.get('latitud') and hospital_row.get('longitud'):
         return hospital_row['latitud'], hospital_row['longitud']
     address = f"{hospital_row['calle']} {hospital_row['altura']}, {hospital_row['ciudad']}, {hospital_row['provincia']}, Argentina"
     lat, lon = geocode_address(address)
     if lat and lon:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE hospital SET latitud=%s, longitud=%s WHERE id_hospital=%s", (lat, lon, hospital_row['id_hospital']))
-            conn.commit()
+        query = "UPDATE hospital SET latitud=%s, longitud=%s WHERE id_hospital=%s"
+        execute_query(query, params=(lat, lon, hospital_row['id_hospital']), is_select=False)
         return lat, lon
     return None, None
 
-def get_paciente_completo(id_paciente, conn):
-    with conn.cursor() as cur:
-        cur.execute(
-            """SELECT id_paciente, provincia, ciudad, calle, altura, latitud, longitud
-            FROM paciente WHERE id_paciente = %s""", (id_paciente,)
-        )
-        row = cur.fetchone()
-        if row:
-            keys = ['id_paciente', 'provincia', 'ciudad', 'calle', 'altura', 'latitud', 'longitud']
-            return dict(zip(keys, row))
-        return None
+def get_paciente_completo(id_paciente):
+    query = "SELECT id_paciente, provincia, ciudad, calle, altura, latitud, longitud FROM paciente WHERE id_paciente = %s"
+    df = execute_query(query, params=(id_paciente,))
+    if not df.empty:
+        keys = ['id_paciente', 'provincia', 'ciudad', 'calle', 'altura', 'latitud', 'longitud']
+        return dict(zip(keys, df.iloc[0]))
+    return None
 
 def buscar_por_especialidad():
     """
@@ -297,19 +291,19 @@ def buscar_por_especialidad():
                     conn = connect_to_supabase()
                     # 2. Obtener paciente completo desde la base
                     paciente_id = st.session_state.usuario_autenticado['id_paciente']
-                    paciente = get_paciente_completo(paciente_id, conn)
+                    paciente = get_paciente_completo(paciente_id)
                     if not paciente:
                         st.error("No se pudo obtener la información de dirección del paciente.")
                         conn.close()
                         return
                     # 3. Obtener lat/lon del paciente
-                    lat_pac, lon_pac = get_or_update_latlon_paciente(paciente, conn)
+                    lat_pac, lon_pac = get_or_update_latlon_paciente(paciente)
                     # 4. Para cada hospital, obtener/actualizar lat/lon y calcular distancia
                     hospitales['latitud'] = None
                     hospitales['longitud'] = None
                     hospitales['distancia_km'] = None
                     for idx, row in hospitales.iterrows():
-                        lat, lon = get_or_update_latlon_hospital(row, conn)
+                        lat, lon = get_or_update_latlon_hospital(row)
                         hospitales.at[idx, 'latitud'] = lat
                         hospitales.at[idx, 'longitud'] = lon
                         if lat and lon and lat_pac and lon_pac:
@@ -688,12 +682,12 @@ def buscar_por_sintomas():
             conn = connect_to_supabase()
             # 2. Obtener paciente completo desde la base
             paciente_id = st.session_state.usuario_autenticado['id_paciente']
-            paciente = get_paciente_completo(paciente_id, conn)
+            paciente = get_paciente_completo(paciente_id)
             if not paciente:
                 st.error("No se pudo obtener la información de dirección del paciente.")
                 conn.close()
                 return
-            lat_pac, lon_pac = get_or_update_latlon_paciente(paciente, conn)
+            lat_pac, lon_pac = get_or_update_latlon_paciente(paciente)
             # 3. Convertir resultados a DataFrame para facilitar el manejo
             df_resultados = pd.DataFrame(resultados)
             # 4. Para cada hospital, obtener/actualizar lat/lon y calcular distancia
