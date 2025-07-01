@@ -152,35 +152,27 @@ def execute_query(query, conn=None, params=None, is_select=True):
 # CSS personalizado para el estilo InfoMed
 st.markdown("""
 <style>
-    .main-header {
-        background: linear-gradient(135deg, #f5f5dc 0%, #e8e8dc 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        margin-bottom: 2rem;
+    .main-header {    
         text-align: center;
-        border: 2px solid #4a90e2;
-    }
-    
+        background: linear-gradient(135deg, #63bdda 0%, #4a9bb8 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        color: white;
+        }
     .main-title {
-        color: #4a90e2;
-        font-size: 2.5rem;
+        color: white;
+        font-size: 1.8rem;
         font-weight: bold;
         margin-bottom: 0.5rem;
     }
-    
     .subtitle {
-        color: #666;
-        font-size: 1.2rem;
+        color: white;
+        font-size: 1rem;
+        opacity: 0.9;
         margin-bottom: 0;
     }
-    
-    .form-container {
-        background: #ffffff;
-        padding: 2rem;
-        border-radius: 15px;
-        border: 2px solid #4a90e2;
-        margin: 1rem 0;
-    }
+
     
     .success-message {
         background: #d4edda;
@@ -348,7 +340,7 @@ st.markdown("""
 <div class="main-header">
     <div class="main-title">InfoMed</div>
     <div class="subtitle">Cargar Estudios Médicos</div>
-    <div style="margin-top: 1rem; color: #666; font-size: 1rem;">
+    <div style="margin-top: 1rem; color: white; font-size: 1rem; opacity: 0.9;">
         Donde tu salud está solamente a un click de distancia 😉
     </div>
 </div>
