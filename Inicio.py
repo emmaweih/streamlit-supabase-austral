@@ -994,7 +994,7 @@ st.markdown(
 if st.session_state.pantalla is None:
     col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
     with col3:
-        st.image("C:/Users/trini/Pictures/Screenshots/Captura de pantalla 2025-06-16 111833.png", width=200)
+        st.image("Captura de pantalla 2025-06-16 111833.png", width=200)
 
 # Selección tipo de registro
 elif st.session_state.pantalla == "seleccion_tipo":
