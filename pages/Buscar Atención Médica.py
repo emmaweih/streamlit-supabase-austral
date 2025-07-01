@@ -742,9 +742,17 @@ def buscar_por_sintomas():
             # 5. Ordenar por distancia
             df_resultados = df_resultados.sort_values('distancia_km')
             # 6. Mostrar mapa con los 5 más cercanos
+# Busca esta sección en tu código (alrededor de las líneas donde muestras el mapa)
+# Reemplaza desde donde está st_folium hasta el contador de resultados
+
+# 6. Mostrar mapa con los 5 más cercanos
+            # Si la primera solución no funciona, usa esta alternativa más agresiva
+
+# Después de mostrar el mapa, reemplaza esta parte:
             if lat_pac and lon_pac:
                 m = folium.Map(location=[lat_pac, lon_pac], zoom_start=13)
-                folium.Marker([lat_pac, lon_pac], tooltip="Tu casa", icon=folium.Icon(color="blue")).add_to(m)
+                folium.Marker([lat_pac, lon_pac], tooltip="Tu casa",
+                            icon=folium.Icon(color="blue")).add_to(m)
                 for i, row in df_resultados.head(5).iterrows():
                     if row['latitud'] and row['longitud']:
                         folium.Marker(
@@ -753,19 +761,34 @@ def buscar_por_sintomas():
                             popup=folium.Popup(f"{row['ciudad']}<br>{row['calle']} {row['altura']}", max_width=400),
                             icon=folium.Icon(color="red")
                         ).add_to(m)
+                        
+                # Mostrar el mapa
                 st_folium(m, width=700, height=400)
+                
+                # CSS mejorado para mantener espaciado natural
+                st.markdown("""
+                <style>
+                /* Solo reducir ligeramente el margen inferior del mapa */
+                iframe[src*="folium"] {
+                    margin-bottom: 0.5rem !important;
+                }
+                
+                /* Mantener espaciado normal entre elementos */
+                .stVerticalBlock {
+                    gap: 1rem !important;
+                }
+                
+                /* Asegurar que las tarjetas tengan su espaciado normal */
+                div[data-testid="stVerticalBlock"] > div {
+                    margin: 0.5rem 0 !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
             else:
                 st.warning("No se pudo determinar la ubicación del paciente para mostrar el mapa.")
-            # 7. Mostrar listado ordenado (como ahora, pero por distancia)
-            especialidades_unicas = list(set([r['especialidad'] for r in resultados]))
-            st.markdown(f"""
-            <div class="results-counter" style="margin-top: 1rem; margin-bottom: 0.5rem;">
-                <h4 style="margin: 0; color: #2E7D32;">
-                    ✅ Se encontraron <strong>{len(hospitales)} hospitales</strong> 
-                    que ofrecen <strong>{especialidad_seleccionada}</strong>
-                </h4>
-            </div>
-            """, unsafe_allow_html=True)
+            # Resto del código sin cambios...
+
             st.markdown("### 🏥 Resultados de la búsqueda (ordenados por cercanía)")
             for idx, resultado in df_resultados.iterrows():
                 st.markdown(f"<div style='color:#888; font-size:0.95rem;'>Distancia: {resultado['distancia_km']:.2f} km</div>", unsafe_allow_html=True)
